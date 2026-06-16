@@ -1,0 +1,14 @@
+services:
+  cognito-local:
+    container_name: cashflow-cognito-local
+    image: jagregory/cognito-local:latest
+    ports:
+      - "127.0.0.1:9229:9229"
+    volumes:
+      - ./.cognito:/app/.cognito
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:9229/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s

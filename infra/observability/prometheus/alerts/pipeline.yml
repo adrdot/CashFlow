@@ -1,0 +1,42 @@
+groups:
+  - name: messaging-pipeline
+    rules:
+      - alert: MessagingPipelineRelayLagSustained
+        expr: max({__name__=~"transactions_relay_subscription_lag(_events)?"}) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: messaging-pipeline
+        annotations:
+          summary: EventStore relay subscription lag sustained
+          description: Persistent subscription lag exceeded 100 events for 5 minutes.
+
+      - alert: MessagingPipelineSqsBacklogSustained
+        expr: max(reporting_sqs_visible_messages) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: messaging-pipeline
+        annotations:
+          summary: Reporting SQS backlog sustained
+          description: Visible messages in the reporting SQS queue remained above zero for 5 minutes.
+
+      - alert: MessagingPipelineThroughputMismatch
+        expr: abs(sum(rate(transactions_created_total[5m])) - sum(rate(reporting_messages_consumed_total[5m]))) > 1 and sum(rate(transactions_created_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: messaging-pipeline
+        annotations:
+          summary: Pipeline throughput mismatch
+          description: EventStore write rate and reporting consumption rate diverged by more than 1 msg/s for 5 minutes.
+
+      - alert: MessagingPipelineReportingFailuresSustained
+        expr: sum(increase(reporting_messages_failures_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: messaging-pipeline
+        annotations:
+          summary: Reporting projection failures sustained
+          description: SQS projection failures occurred for more than 5 minutes.

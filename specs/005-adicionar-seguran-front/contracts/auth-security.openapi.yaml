@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: CashFlow Auth Security API
+  version: 0.1.0
+paths:
+  /api/auth/login:
+    post:
+      summary: Authenticate a user and return a JWT-backed session
+      responses:
+        '200':
+          description: Authenticated successfully
+        '400':
+          description: Invalid credentials or malformed request
+  /api/auth/session:
+    get:
+      summary: Validate the current authenticated session
+      responses:
+        '200':
+          description: Session is valid
+        '401':
+          description: Missing or invalid bearer token

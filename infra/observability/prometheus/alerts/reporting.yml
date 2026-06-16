@@ -1,0 +1,84 @@
+groups:
+  - name: reporting-api
+    rules:
+      - alert: ReportingServerErrorRateHigh
+        expr: 100 * sum(rate(reporting_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(reporting_requests_total[5m])), 1) > 1
+        for: 5m
+        labels:
+          severity: critical
+          service: reporting-api
+        annotations:
+          summary: Reporting API 5xx rate above 1%
+          description: Server error rate on /api/reports exceeded 1% for 5 minutes.
+
+      - alert: ReportingCachedReadP95High
+        expr: histogram_quantile(0.95, sum(rate(reporting_read_duration_milliseconds_bucket{cache="hit",outcome="success"}[5m])) by (le)) > 2000
+        for: 5m
+        labels:
+          severity: warning
+          service: reporting-api
+        annotations:
+          summary: Cached report read p95 above 2s
+          description: Consolidated daily report cache-hit p95 exceeded 2 seconds for 5 minutes.
+
+      - alert: ReportingUncachedReadP95High
+        expr: histogram_quantile(0.95, sum(rate(reporting_read_duration_milliseconds_bucket{cache="miss",outcome="success"}[5m])) by (le)) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: reporting-api
+        annotations:
+          summary: Uncached report read p95 above 5s
+          description: Consolidated daily report cache-miss p95 exceeded 5 seconds for 5 minutes.
+
+      - alert: ReportingExportFailuresSustained
+        expr: increase(reporting_export_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: reporting-api
+        annotations:
+          summary: Report export failures sustained
+          description: CSV or PDF export failures occurred for more than 5 minutes.
+
+      - alert: ReportingCacheMissRateHigh
+        expr: 100 * sum(rate(reporting_cache_misses_total[5m])) / clamp_min(sum(rate(reporting_cache_hits_total[5m])) + sum(rate(reporting_cache_misses_total[5m])), 1) > 50 and sum(rate(reporting_read_duration_milliseconds_count[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: reporting-api
+        annotations:
+          summary: Report cache miss rate above 50%
+          description: Cache miss ratio exceeded 50% while read traffic was sustained for 10 minutes.
+
+  - name: reporting-worker
+    rules:
+      - alert: ReportingProjectionFailuresSustained
+        expr: increase(reporting_messages_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: reporting-worker
+        annotations:
+          summary: Reporting projection failures sustained
+          description: SQS projection failures occurred for more than 5 minutes.
+
+      - alert: ReportingProjectionP95High
+        expr: histogram_quantile(0.95, sum(rate(reporting_projection_duration_milliseconds_bucket{outcome="success"}[5m])) by (le)) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: reporting-worker
+        annotations:
+          summary: Reporting projection p95 above 1s
+          description: SQS-to-SQL projection p95 exceeded 1 second for 5 minutes.
+
+      - alert: ReportingPipelineP95High
+        expr: histogram_quantile(0.95, sum(rate(reporting_pipeline_duration_milliseconds_bucket[5m])) by (le)) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: reporting-worker
+        annotations:
+          summary: Reporting pipeline p95 above 5s
+          description: Event creation to reporting-db projection p95 exceeded 5 seconds for 5 minutes.

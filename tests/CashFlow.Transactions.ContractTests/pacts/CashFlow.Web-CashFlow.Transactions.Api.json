@@ -1,0 +1,276 @@
+{
+  "consumer": {
+    "name": "CashFlow.Web"
+  },
+  "interactions": [
+    {
+      "description": "a create transaction request when persistence fails",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "transaction persistence fails"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 150.75,
+            "description": "Contract test transaction",
+            "transactionDate": "2026-06-14",
+            "type": "Debit"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.contract-test-token"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "Bearer .+"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/transactions/"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "retryAfterSeconds": 5,
+            "title": "Transaction persistence failed"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/problem+json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.retryAfterSeconds": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 503
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a create transaction request with invalid payload",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a user is authenticated"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 0,
+            "description": "ab",
+            "transactionDate": null,
+            "type": "Transfer"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.contract-test-token"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "Bearer .+"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/transactions/"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "status": 400,
+            "title": "Transaction request is invalid"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "status": 400
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a create transaction request without bearer token",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no bearer token is provided"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 150.75,
+            "description": "Contract test transaction",
+            "transactionDate": "2026-06-14",
+            "type": "Debit"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/transactions/"
+      },
+      "response": {
+        "status": 401
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a valid create transaction request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a user is authenticated"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 150.75,
+            "description": "Contract test transaction",
+            "transactionDate": "2026-06-14",
+            "type": "Debit"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.contract-test-token"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "Bearer .+"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/transactions/"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "errorMessage": null,
+            "succeeded": true,
+            "transaction": {
+              "amount": 150.75,
+              "createdAtUtc": "2026-06-14T12:00:00.0000000+00:00",
+              "description": "Contract test transaction",
+              "id": "11111111-1111-1111-1111-111111111111",
+              "transactionDate": "2026-06-14",
+              "type": "Debit"
+            }
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.transaction.createdAtUtc": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+                }
+              ]
+            },
+            "$.transaction.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.27",
+      "models": "1.2.8"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "CashFlow.Transactions.Api"
+  }
+}

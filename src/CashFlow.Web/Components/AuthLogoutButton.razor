@@ -1,0 +1,11 @@
+<button class="btn btn-outline-secondary" type="button" @onclick="OnClickAsync">Sign out</button>
+
+@code {
+    [Parameter]
+    public EventCallback OnLogout { get; set; }
+
+    private Task OnClickAsync()
+    {
+        return OnLogout.InvokeAsync();
+    }
+}

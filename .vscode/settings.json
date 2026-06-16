@@ -9,6 +9,29 @@
     "chat.tools.terminal.autoApprove": {
         ".specify/scripts/bash/": true,
         ".specify/scripts/powershell/": true
+    },
+    "aws.profile": "localstack",
+    "aws.region": "us-east-1",
+    "aws.resources.enabledResources": [],
+    "aws.dev.endpoints": {
+        "default": "http://127.0.0.1:4566",
+        "sts": "http://127.0.0.1:4566",
+        "sns": "http://127.0.0.1:4566",
+        "sqs": "http://127.0.0.1:4566",
+        "kms": "http://127.0.0.1:4566",
+        "secretsmanager": "http://127.0.0.1:4566",
+        "cloudformation": "http://127.0.0.1:4566",
+        "cloudwatch": "http://127.0.0.1:4566",
+        "logs": "http://127.0.0.1:4566",
+        "apigateway": "http://127.0.0.1:4566",
+        "apigatewayv2": "http://127.0.0.1:4566"
+    },
+    "terminal.integrated.env.windows": {
+        "AWS_PROFILE": "localstack",
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "AWS_ACCESS_KEY_ID": "test",
+        "AWS_SECRET_ACCESS_KEY": "test",
+        "AWS_SDK_LOAD_CONFIG": "1"
     }
 }
 
