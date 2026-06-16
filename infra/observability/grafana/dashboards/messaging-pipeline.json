@@ -1,0 +1,188 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Events published / min",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "decimals": 0 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(transactions_events_published_total[1m]))",
+          "legendFormat": "published"
+        }
+      ]
+    },
+    {
+      "title": "SQS visible messages",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "decimals": 0 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
+          "legendFormat": "visible"
+        }
+      ]
+    },
+    {
+      "title": "End-to-end p95 (ms)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(transactions_end_to_end_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "create → SNS"
+        }
+      ]
+    },
+    {
+      "title": "Reporting pipeline p95 (ms)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(reporting_pipeline_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "create → reporting"
+        }
+      ]
+    },
+    {
+      "title": "Pipeline throughput (msg/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "ops" },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(transactions_created_total[1m]))",
+          "legendFormat": "EventStore writes"
+        },
+        {
+          "expr": "sum(rate(transactions_events_published_total[1m]))",
+          "legendFormat": "SNS published"
+        },
+        {
+          "expr": "sum(rate(reporting_messages_consumed_total[1m]))",
+          "legendFormat": "SQS consumed"
+        }
+      ]
+    },
+    {
+      "title": "Relay subscription lag (events)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "expr": "max({__name__=~\"transactions_relay_subscription_lag(_events)?\"})",
+          "legendFormat": "lag"
+        }
+      ]
+    },
+    {
+      "title": "Relay in-flight",
+      "type": "stat",
+      "gridPos": { "h": 7, "w": 4, "x": 8, "y": 13 },
+      "targets": [
+        { "expr": "max(transactions_relay_subscription_in_flight)" }
+      ]
+    },
+    {
+      "title": "SQS queue depth",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 13 },
+      "targets": [
+        {
+          "expr": "max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
+          "legendFormat": "visible"
+        },
+        {
+          "expr": "max(aws_sqs_approximate_number_of_messages_not_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
+          "legendFormat": "in-flight"
+        }
+      ]
+    },
+    {
+      "title": "Pipeline p95 (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 13 },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(transactions_end_to_end_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "create → SNS"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(reporting_pipeline_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "create → reporting"
+        }
+      ]
+    },
+    {
+      "title": "Publish failures / 5m",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 20 },
+      "targets": [
+        { "expr": "sum(increase(transactions_events_publish_failures_total[5m]))" }
+      ]
+    },
+    {
+      "title": "Projection failures / 5m",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 20 },
+      "targets": [
+        { "expr": "sum(increase(reporting_messages_failures_total[5m]))" }
+      ]
+    },
+    {
+      "title": "Throughput balance (created - consumed /s)",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": { "unit": "ops" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(transactions_created_total[1m])) - sum(rate(reporting_messages_consumed_total[1m]))",
+          "legendFormat": "delta"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["cashflow", "messaging", "pipeline"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "Messaging Pipeline (EventStore → SQS)",
+  "uid": "cashflow-messaging-pipeline",
+  "version": 2
+}

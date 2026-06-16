@@ -1,0 +1,23 @@
+# Build outputs
+**/bin/
+**/obj/
+BenchmarkDotNet.Artifacts/
+
+# Local / IDE
+.vs/
+*.slnLaunch.user
+aspire.config.json
+*.user
+
+# Load test and benchmark reports
+scripts/reports/
+reports/
+
+# Generated infra (local dev)
+infra/**/generated/
+infra/**/.cognito/
+infra/generated/
+
+# OS
+Thumbs.db
+.DS_Store

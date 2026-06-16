@@ -1,0 +1,218 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager NavigationManager
+@inject SessionStore SessionStore
+@inject AuthenticatedSessionService AuthenticatedSessionService
+@inject OAuthLoginService OAuthLoginService
+@inject IOptions<DemoAccountOptions> DemoAccountOptions
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Login</PageTitle>
+
+@if (isCheckingSession)
+{
+	<div class="card shadow-sm">
+		<div class="card-body">
+			<h2 class="h5 mb-2">Checking session</h2>
+			<p class="text-body-secondary mb-0">Restoring your sign-in state...</p>
+		</div>
+	</div>
+}
+else
+{
+	<div class="row justify-content-center">
+		<div class="col-lg-6">
+			<div class="card shadow-sm">
+				<div class="card-body p-4">
+					<h2 class="h4 mb-2">@(isMfaStep ? "Verify MFA" : "Sign in")</h2>
+					<p class="text-body-secondary mb-4">
+						@(isMfaStep
+							? (string.Equals(loginRequest.ChallengeName, "LOCAL_MFA", StringComparison.OrdinalIgnoreCase)
+								? "Enter the local MFA code shown below the sign-in form."
+								: "Enter the MFA code sent to your Cognito user.")
+							: OAuthLoginService.IsEnabled
+								? "Use OAuth2 Hosted UI or sign in with email and password."
+								: "Use your email and password to access protected areas.")
+					</p>
+
+					@if (OAuthLoginService.IsEnabled && !isMfaStep)
+					{
+						<button class="btn btn-outline-primary w-100 mb-3" type="button" disabled="@isSubmitting" @onclick="BeginOAuthSignInAsync">
+							Sign in with Hosted UI (OAuth2)
+						</button>
+						<div class="text-center text-body-secondary small mb-3">or continue with password</div>
+					}
+
+					@if (!string.IsNullOrWhiteSpace(errorMessage))
+					{
+						<div class="alert alert-danger" role="alert">@errorMessage</div>
+					}
+
+					@if (isMfaStep)
+					{
+						<EditForm Model="loginRequest" OnValidSubmit="HandleMfaSubmitAsync" FormName="MfaForm">
+							<DataAnnotationsValidator />
+							<ValidationSummary class="text-danger mb-3" />
+
+							<div class="mb-4">
+								<label class="form-label" for="mfaCode">MFA code</label>
+								<InputText id="mfaCode" class="form-control" @bind-Value="loginRequest.MfaCode" />
+							</div>
+
+							<div class="d-flex gap-2">
+								<button class="btn btn-primary flex-grow-1" type="submit" disabled="@isSubmitting">
+									@(isSubmitting ? "Verifying..." : "Verify code")
+								</button>
+								<button class="btn btn-outline-secondary" type="button" disabled="@isSubmitting" @onclick="ResetMfaStep">
+									Back
+								</button>
+							</div>
+						</EditForm>
+					}
+					else
+					{
+						<EditForm Model="loginRequest" OnValidSubmit="HandleSubmitAsync" FormName="LoginForm">
+							<DataAnnotationsValidator />
+							<ValidationSummary class="text-danger mb-3" />
+
+							<div class="mb-3">
+								<label class="form-label" for="email">Email</label>
+								<InputText id="email" class="form-control" @bind-Value="loginRequest.Email" />
+							</div>
+
+							<div class="mb-4">
+								<label class="form-label" for="password">Password</label>
+								<InputText id="password" class="form-control" @bind-Value="loginRequest.Password" type="password" />
+							</div>
+
+							<button class="btn btn-primary w-100" type="submit" disabled="@isSubmitting">
+								@(isSubmitting ? "Signing in..." : "Sign in")
+							</button>
+						</EditForm>
+
+						<p class="text-body-secondary small mt-4 mb-0">
+							@DemoAccountOptions.Value.Description<br />
+							Account: <strong>@DemoAccountOptions.Value.Email</strong> / <strong>@DemoAccountOptions.Value.Password</strong>
+							@if (DemoAccountOptions.Value.MfaCode is { Length: > 0 } mfaCode)
+							{
+								<br />
+								<span>MFA code: <strong>@mfaCode</strong></span>
+							}
+						</p>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[SupplyParameterFromForm(FormName = "LoginForm")]
+	private LoginRequest loginRequest { get; set; } = new();
+
+	private bool isCheckingSession = true;
+	private bool isSubmitting;
+	private bool isMfaStep;
+	private string? errorMessage;
+
+	protected override void OnParametersSet()
+	{
+		loginRequest ??= new();
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
+
+		var storedSession = await AuthenticatedSessionService.RestoreSessionAsync();
+		if (storedSession is not null)
+		{
+			NavigationManager.NavigateTo("/dashboard");
+			return;
+		}
+
+		isCheckingSession = false;
+		StateHasChanged();
+	}
+
+	private async Task HandleSubmitAsync()
+	{
+		isSubmitting = true;
+		errorMessage = null;
+		loginRequest.ChallengeSession = null;
+		loginRequest.ChallengeName = null;
+		loginRequest.MfaCode = null;
+
+		var result = await AuthApiClient.LoginAsync(loginRequest);
+		if (result.RequiresMfa)
+		{
+			loginRequest.ChallengeSession = result.ChallengeSession;
+			loginRequest.ChallengeName = result.ChallengeName;
+			isMfaStep = true;
+			errorMessage = result.ErrorMessage;
+			isSubmitting = false;
+			return;
+		}
+
+		if (!await CompleteLoginAsync(result))
+		{
+			isSubmitting = false;
+		}
+	}
+
+	private async Task HandleMfaSubmitAsync()
+	{
+		isSubmitting = true;
+		errorMessage = null;
+
+		if (!await CompleteLoginAsync(await AuthApiClient.LoginAsync(loginRequest)))
+		{
+			isSubmitting = false;
+		}
+	}
+
+	private async Task<bool> CompleteLoginAsync(LoginResult result)
+	{
+		if (!result.Succeeded || result.Session is null || string.IsNullOrWhiteSpace(result.Token))
+		{
+			errorMessage = result.ErrorMessage ?? "Authentication failed.";
+			return false;
+		}
+
+		await SessionStore.SaveAsync(new StoredSession
+		{
+			Token = result.Token,
+			RefreshToken = result.RefreshToken,
+			Email = result.Session.Email,
+			DisplayName = result.Session.DisplayName,
+			ExpiresAtUtc = result.Session.ExpiresAtUtc
+		});
+
+		isSubmitting = false;
+		NavigationManager.NavigateTo("/dashboard");
+		return true;
+	}
+
+	private void ResetMfaStep()
+	{
+		isMfaStep = false;
+		errorMessage = null;
+		loginRequest.MfaCode = null;
+		loginRequest.ChallengeSession = null;
+		loginRequest.ChallengeName = null;
+	}
+
+	private async Task BeginOAuthSignInAsync()
+	{
+		isSubmitting = true;
+		errorMessage = null;
+
+		var state = await JsRuntime.InvokeAsync<string>("cashFlowAuthStorage.createOAuthState");
+		await JsRuntime.InvokeVoidAsync("cashFlowAuthStorage.saveOAuthState", state);
+		NavigationManager.NavigateTo(OAuthLoginService.BuildAuthorizeUrl(state), forceLoad: true);
+	}
+}

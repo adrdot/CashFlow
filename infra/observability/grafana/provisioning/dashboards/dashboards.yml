@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Transactions API
+    orgId: 1
+    folder: CashFlow
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,77 @@
+@page "/auth/callback"
+@rendermode InteractiveServer
+@inject OAuthLoginService OAuthLoginService
+@inject SessionStore SessionStore
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Signing in</PageTitle>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h5 mb-2">Completing sign-in</h2>
+        <p class="text-body-secondary mb-0">@statusMessage</p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "code")]
+    private string? Code { get; set; }
+
+    [SupplyParameterFromQuery(Name = "state")]
+    private string? State { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private string statusMessage = "Exchanging authorization code...";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Error))
+        {
+            statusMessage = "Sign-in was cancelled or denied.";
+            StateHasChanged();
+            await Task.Delay(1500);
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Code) || string.IsNullOrWhiteSpace(State))
+        {
+            statusMessage = "Missing OAuth callback parameters.";
+            StateHasChanged();
+            await Task.Delay(1500);
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        var isValidState = await JsRuntime.InvokeAsync<bool>("cashFlowAuthStorage.validateOAuthState", State);
+        if (!isValidState)
+        {
+            statusMessage = "Invalid OAuth state. Please try signing in again.";
+            StateHasChanged();
+            await Task.Delay(1500);
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        var session = await OAuthLoginService.CompleteCallbackAsync(Code);
+        if (session is null)
+        {
+            statusMessage = "Unable to exchange the authorization code.";
+            StateHasChanged();
+            await Task.Delay(1500);
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        await SessionStore.SaveAsync(session);
+        NavigationManager.NavigateTo("/dashboard");
+    }
+}

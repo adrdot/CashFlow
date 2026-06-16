@@ -1,0 +1,62 @@
+groups:
+  - name: transactions-api
+    rules:
+      - alert: TransactionsPersistenceP95High
+        expr: histogram_quantile(0.95, sum(rate(transactions_persistence_duration_milliseconds_bucket{outcome="success"}[5m])) by (le)) > 200
+        for: 5m
+        labels:
+          severity: warning
+          service: transactions-api
+        annotations:
+          summary: Transactions persistence p95 above 200ms
+          description: Successful write persistence p95 exceeded 200ms for 5 minutes.
+
+      - alert: TransactionsEndToEndP95High
+        expr: histogram_quantile(0.95, sum(rate(transactions_end_to_end_duration_milliseconds_bucket[5m])) by (le)) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: transactions-api
+        annotations:
+          summary: Transactions end-to-end p95 above 5s
+          description: EventStore-to-SNS publish p95 exceeded 5 seconds for 5 minutes.
+
+      - alert: TransactionsServerErrorRateHigh
+        expr: 100 * (sum(rate(http_server_request_duration_seconds_count{job="transactions-api",http_response_status_code=~"5.."}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job="transactions-api",http_response_status_code=~"5.."}[5m]))) / clamp_min((sum(rate(http_server_request_duration_seconds_count{job="transactions-api"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job="transactions-api"}[5m]))), 1) > 1
+        for: 5m
+        labels:
+          severity: critical
+          service: transactions-api
+        annotations:
+          summary: Transactions API 5xx rate above 1%
+          description: Server error rate on /api/transactions exceeded 1% for 5 minutes.
+
+      - alert: TransactionsPublishFailuresSustained
+        expr: increase(transactions_events_publish_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: transactions-api
+        annotations:
+          summary: SNS publish failures sustained
+          description: EventStore relay SNS publish failures occurred for more than 5 minutes.
+
+      - alert: TransactionsPublishFailureRateHigh
+        expr: 100 * sum(rate(transactions_events_publish_failures_total[5m])) / clamp_min(sum(rate(transactions_events_published_total[5m])) + sum(rate(transactions_events_publish_failures_total[5m])), 1) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: transactions-api
+        annotations:
+          summary: SNS publish failure rate above 1%
+          description: EventStore relay SNS publish failures exceeded 1% over 5 minutes.
+
+      - alert: TransactionsPersistenceFailuresDetected
+        expr: increase(transactions_persistence_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: transactions-api
+        annotations:
+          summary: Transaction persistence failures detected
+          description: EventStore persistence failures occurred in the last 5 minutes.

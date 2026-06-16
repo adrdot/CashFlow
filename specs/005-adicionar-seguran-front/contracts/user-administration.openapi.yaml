@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: CashFlow User Administration API
+  version: 0.1.0
+paths:
+  /api/admin/users:
+    post:
+      summary: Create or update a managed user
+      responses:
+        '200':
+          description: User updated
+        '403':
+          description: Caller is not authorized to manage users
+  /api/admin/users/{email}/access:
+    put:
+      summary: Assign application access to a user
+      parameters:
+        - in: path
+          name: email
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Access updated

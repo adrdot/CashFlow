@@ -1,0 +1,3 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cognito user pool baseline for CashFlow security feature.
+Resources: {}

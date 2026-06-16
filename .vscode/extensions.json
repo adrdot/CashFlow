@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "amazonwebservices.aws-toolkit-vscode",
+        "csharpier.csharpier-vscode",
+        "jaroslavlobacevski.securitycodescanvs2019",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit"
+    ]
+}

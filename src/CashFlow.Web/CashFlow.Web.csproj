@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aspire.CashFlow.ServiceDefaults\Aspire.CashFlow.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\CashFlow.Auth.Api\Application\Contracts\**\*.cs" Link="Application\Auth\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CashFlow.Reporting.Api\Application\Contracts\**\*.cs" Link="Application/Reporting\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CashFlow.Transactions.Api\Application\Contracts\**\*.cs" Link="Application/Transactions\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+</Project>

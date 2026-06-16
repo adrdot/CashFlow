@@ -1,0 +1,181 @@
+@page "/cash-flow"
+@rendermode InteractiveServer
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager NavigationManager
+@inject SessionStore SessionStore
+@inject AuthenticatedSessionService AuthenticatedSessionService
+@inject TransactionsApiClient TransactionsApiClient
+
+<PageTitle>Cash Flow</PageTitle>
+
+@if (isLoading)
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5 mb-2">Loading cash flow</h2>
+            <p class="text-body-secondary mb-0">Validating your session before transaction entry...</p>
+        </div>
+    </div>
+}
+else if (currentSession is null)
+{
+    <div class="alert alert-warning" role="alert">
+        Your session is no longer valid. Redirecting to sign in...
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-2">Record transaction</h1>
+                    <p class="text-body-secondary mb-4">Capture debit and credit entries with date, amount, and description.</p>
+
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">@errorMessage</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(successMessage))
+                    {
+                        <div class="alert alert-success" role="status">@successMessage</div>
+                    }
+
+                    <EditForm Model="transactionRequest" OnValidSubmit="HandleSubmitAsync" FormName="TransactionForm">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger mb-3" />
+
+                        <div class="mb-3">
+                            <label class="form-label" for="transaction-type">Type</label>
+                            <InputSelect id="transaction-type" class="form-select" @bind-Value="transactionRequest.Type">
+                                <option value="Debit">Debit</option>
+                                <option value="Credit">Credit</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="transaction-amount">Amount</label>
+                            <InputNumber id="transaction-amount" class="form-control" @bind-Value="transactionRequest.Amount" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="transaction-date">Date</label>
+                            <InputDate id="transaction-date" class="form-control" @bind-Value="transactionRequest.TransactionDate" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label" for="transaction-description">Description</label>
+                            <InputText id="transaction-description" class="form-control" @bind-Value="transactionRequest.Description" />
+                        </div>
+
+                        <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
+                            @(isSubmitting ? "Recording..." : "Record transaction")
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Latest confirmation</h2>
+
+                    @if (lastTransaction is null)
+                    {
+                        <p class="text-body-secondary mb-0">Your next accepted transaction will be confirmed here.</p>
+                    }
+                    else
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Identifier</dt>
+                            <dd class="col-sm-7">@lastTransaction.Id</dd>
+
+                            <dt class="col-sm-5">Type</dt>
+                            <dd class="col-sm-7">@lastTransaction.Type</dd>
+
+                            <dt class="col-sm-5">Amount</dt>
+                            <dd class="col-sm-7">@lastTransaction.Amount.ToString("C")</dd>
+
+                            <dt class="col-sm-5">Date</dt>
+                            <dd class="col-sm-7">@lastTransaction.TransactionDate.ToString("d")</dd>
+
+                            <dt class="col-sm-5">Description</dt>
+                            <dd class="col-sm-7">@lastTransaction.Description</dd>
+                        </dl>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private StoredSession? currentSession;
+
+    [SupplyParameterFromForm(FormName = "TransactionForm")]
+    private CreateTransactionRequest transactionRequest { get; set; } = CreateDefaultRequest();
+
+    private TransactionReceipt? lastTransaction;
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override void OnParametersSet()
+    {
+        transactionRequest ??= CreateDefaultRequest();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        currentSession = await AuthenticatedSessionService.RestoreSessionAsync();
+        if (currentSession is null)
+        {
+            isLoading = false;
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (currentSession is null)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+        successMessage = null;
+
+        var result = await TransactionsApiClient.CreateAsync(transactionRequest, currentSession.Token);
+        if (!result.Succeeded || result.Transaction is null)
+        {
+            errorMessage = result.ErrorMessage ?? "Transaction could not be recorded.";
+            isSubmitting = false;
+            return;
+        }
+
+        lastTransaction = result.Transaction;
+        successMessage = $"Transaction {lastTransaction.Id} recorded successfully.";
+        transactionRequest = CreateDefaultRequest();
+        isSubmitting = false;
+    }
+
+    private static CreateTransactionRequest CreateDefaultRequest() => new()
+    {
+        Type = "Debit",
+        TransactionDate = DateOnly.FromDateTime(DateTime.Today)
+    };
+}

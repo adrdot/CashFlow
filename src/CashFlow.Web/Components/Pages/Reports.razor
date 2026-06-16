@@ -1,0 +1,332 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager NavigationManager
+@inject ReportingApiClient ReportingApiClient
+@inject SessionStore SessionStore
+@inject AuthenticatedSessionService AuthenticatedSessionService
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Reports</PageTitle>
+
+@if (isLoading)
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5 mb-2">Loading reports</h2>
+            <p class="text-body-secondary mb-0">Validating your session and preparing the daily report...</p>
+        </div>
+    </div>
+}
+else if (currentSession is null)
+{
+    <div class="alert alert-warning" role="alert">
+        Your session is no longer valid. Redirecting to sign in...
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-end">
+                        <div>
+                            <h1 class="h4 mb-1">Daily consolidated report</h1>
+                            <p class="text-body-secondary mb-0">Review daily balances, debit-versus-credit ratio, and transaction volume from a single authenticated view.</p>
+                        </div>
+                        <EditForm Model="reportRequest" OnValidSubmit="LoadReportAsync" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
+                            <DataAnnotationsValidator />
+                            <div>
+                                <label class="form-label" for="report-date">Report date</label>
+                                <InputDate id="report-date" class="form-control" @bind-Value="reportRequest.ReportDate" />
+                            </div>
+                            <button class="btn btn-primary" type="submit" disabled="@isRefreshing">
+                                @(isRefreshing ? "Loading..." : "Load report")
+                            </button>
+                            <button class="btn btn-outline-secondary" type="button"
+                                    disabled="@(isExporting || isRefreshing || reportRequest.ReportDate is null)"
+                                    @onclick="DownloadCsvAsync">
+                                @(isExporting ? "Exporting..." : "Download CSV")
+                            </button>
+                        </EditForm>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3 mb-0" role="alert">@errorMessage</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (report is not null)
+        {
+            <div class="col-12">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h2 class="h6 text-uppercase text-body-secondary">Total Debits</h2>
+                                <p class="display-6 mb-0">@report.TotalDebits.ToString("C")</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h2 class="h6 text-uppercase text-body-secondary">Total Credits</h2>
+                                <p class="display-6 mb-0">@report.TotalCredits.ToString("C")</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h2 class="h6 text-uppercase text-body-secondary">Balance</h2>
+                                <p class="display-6 mb-0">@report.ConsolidatedBalance.ToString("C")</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h2 class="h6 text-uppercase text-body-secondary">Transaction Volume</h2>
+                                <p class="display-6 mb-0">@report.TransactionVolume</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!report.HasData)
+            {
+                <div class="col-12">
+                    <div class="alert alert-info mb-0" role="status">
+                        No transactions were found for @report.ReportDate.ToString("d"). The report is showing a valid zero state.
+                    </div>
+                </div>
+            }
+
+            <div class="col-xl-4 col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h5 mb-3">Debit vs Credit Ratio</h2>
+                        <div class="d-flex flex-column align-items-center gap-3">
+                            <div class="rounded-circle border" style="width: 180px; height: 180px; background: @GetPieBackground();"></div>
+                            <div class="w-100">
+                                @foreach (var slice in report.Dataset.PieSeries)
+                                {
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>@slice.Label</span>
+                                        <strong>@slice.Value.ToString("C")</strong>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h5 mb-3">Balance Trend Line</h2>
+                        <svg viewBox="0 0 300 180" class="w-100" role="img" aria-label="Line chart of debits, credits, and balance values.">
+                            <polyline fill="none" stroke="#0d6efd" stroke-width="4" points="@BuildLinePoints()"></polyline>
+                            @foreach (var point in GetLineCoordinates())
+                            {
+                                <circle cx="@point.X" cy="@point.Y" r="6" fill="#0d6efd"></circle>
+                            }
+                        </svg>
+                        <div class="d-flex justify-content-between small text-body-secondary">
+                            @foreach (var point in report.Dataset.LineSeries)
+                            {
+                                <span>@point.Label</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h5 mb-3">Transaction Volume Bars</h2>
+                        <div class="d-flex justify-content-around align-items-end" style="height: 220px;">
+                            @foreach (var point in report.Dataset.BarSeries)
+                            {
+                                <div class="d-flex flex-column align-items-center gap-2 w-25">
+                                    <div class="bg-primary rounded-top w-100" style="height: @GetBarHeight(point.Value); min-height: 12px;"></div>
+                                    <strong>@point.Value</strong>
+                                    <span class="small text-center text-body-secondary">@point.Label</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private StoredSession? currentSession;
+    private readonly GetDailyReportRequest reportRequest = new()
+    {
+        ReportDate = new DateOnly(2026, 6, 12)
+    };
+    private DailyReportResult? report;
+    private bool isLoading = true;
+    private bool isRefreshing;
+    private bool isExporting;
+    private string? errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        currentSession = await AuthenticatedSessionService.RestoreSessionAsync();
+        if (currentSession is null)
+        {
+            isLoading = false;
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        await LoadReportAsync();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadReportAsync()
+    {
+        if (currentSession is null || reportRequest.ReportDate is null)
+        {
+            return;
+        }
+
+        isRefreshing = true;
+        errorMessage = null;
+
+        var nextReport = await ReportingApiClient.GetDailyReportAsync(reportRequest.ReportDate.Value, currentSession.Token);
+        if (nextReport is null)
+        {
+            errorMessage = "Reporting service is unavailable. Try again later.";
+            isRefreshing = false;
+            return;
+        }
+
+        report = nextReport;
+        isRefreshing = false;
+    }
+
+    private async Task DownloadCsvAsync()
+    {
+        if (currentSession is null || reportRequest.ReportDate is null)
+        {
+            return;
+        }
+
+        isExporting = true;
+        errorMessage = null;
+
+        var download = await ReportingApiClient.DownloadDailyReportCsvAsync(
+            reportRequest.ReportDate.Value,
+            currentSession.Token);
+
+        if (download is null)
+        {
+            errorMessage = "CSV export failed. Try again later.";
+            isExporting = false;
+            return;
+        }
+
+        await JsRuntime.InvokeVoidAsync(
+            "cashFlowDownload.downloadFromBase64",
+            download.FileName,
+            download.ContentType,
+            Convert.ToBase64String(download.Content));
+
+        isExporting = false;
+    }
+
+    private string GetPieBackground()
+    {
+        if (report is null)
+        {
+            return "conic-gradient(#6c757d 0deg 360deg)";
+        }
+
+        var total = report.TotalDebits + report.TotalCredits;
+        if (total <= 0)
+        {
+            return "conic-gradient(#adb5bd 0deg 360deg)";
+        }
+
+        var debitDegrees = (double)(report.TotalDebits / total * 360m);
+        return $"conic-gradient(#dc3545 0deg {debitDegrees:F2}deg, #198754 {debitDegrees:F2}deg 360deg)";
+    }
+
+    private string BuildLinePoints()
+    {
+        return string.Join(' ', GetLineCoordinates().Select(point => $"{point.X:F0},{point.Y:F0}"));
+    }
+
+    private IReadOnlyList<LineCoordinate> GetLineCoordinates()
+    {
+        if (report is null || report.Dataset.LineSeries.Count == 0)
+        {
+            return [];
+        }
+
+        var values = report.Dataset.LineSeries.Select(metric => metric.Value).ToArray();
+        var min = values.Min();
+        var max = values.Max();
+        const decimal width = 260m;
+        const decimal height = 140m;
+        const decimal xOffset = 20m;
+        const decimal yOffset = 20m;
+
+        return report.Dataset.LineSeries
+            .Select((metric, index) => new LineCoordinate
+            {
+                X = xOffset + index * (width / Math.Max(1, report.Dataset.LineSeries.Count - 1)),
+                Y = yOffset + Normalize(metric.Value, min, max, height)
+            })
+            .ToArray();
+    }
+
+    private static decimal Normalize(decimal value, decimal min, decimal max, decimal height)
+    {
+        if (max == min)
+        {
+            return height / 2m;
+        }
+
+        var normalized = (value - min) / (max - min);
+        return height - (normalized * height);
+    }
+
+    private string GetBarHeight(decimal value)
+    {
+        if (report is null || report.Dataset.BarSeries.Count == 0)
+        {
+            return "0%";
+        }
+
+        var maxValue = Math.Max(1m, report.Dataset.BarSeries.Max(metric => metric.Value));
+        var percentage = value / maxValue * 100m;
+        return $"{percentage:F0}%";
+    }
+
+    private sealed record LineCoordinate
+    {
+        public decimal X { get; init; }
+
+        public decimal Y { get; init; }
+    }
+}

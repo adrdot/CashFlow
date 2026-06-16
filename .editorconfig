@@ -1,0 +1,84 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csx}]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.sh]
+end_of_line = lf
+
+# Organização e estilo C#
+dotnet_sort_system_directives_first = true
+dotnet_style_allow_multiple_blank_lines_experimental = false:warning
+
+# Usings: sem linha em branco entre cada diretiva
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:suggestion
+
+csharp_prefer_braces = true:suggestion
+csharp_prefer_simple_using_statement = true:suggestion
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_style_prefer_method_group_conversion = true:suggestion
+csharp_style_prefer_top_level_statements = false:suggestion
+csharp_style_expression_bodied_methods = false:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+
+# Formatação
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+dotnet_style_prefer_auto_properties = true:suggestion
+
+# Analisadores — severidade
+dotnet_analyzer_diagnostic.category-Style.severity = warning
+dotnet_analyzer_diagnostic.category-CodeQuality.severity = warning
+dotnet_analyzer_diagnostic.category-Design.severity = suggestion
+dotnet_analyzer_diagnostic.category-Performance.severity = warning
+dotnet_analyzer_diagnostic.category-Security.severity = warning
+
+# Security Code Scan (OWASP / SAST)
+dotnet_diagnostic.SCS0001.severity = warning
+dotnet_diagnostic.SCS0002.severity = warning
+dotnet_diagnostic.SCS0003.severity = warning
+dotnet_diagnostic.SCS0004.severity = warning
+dotnet_diagnostic.SCS0005.severity = warning
+
+# IDE
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0055.severity = warning
+dotnet_diagnostic.IDE0160.severity = suggestion
+dotnet_diagnostic.IDE0161.severity = suggestion
+
+# Blazor: formulários com initializer + SupplyParameterFromForm (padrão comum)
+dotnet_diagnostic.BL0008.severity = suggestion
+
+# Testes — relaxar regras de design
+[**/*Tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1062.severity = suggestion
+
+[**/*Benchmarks/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

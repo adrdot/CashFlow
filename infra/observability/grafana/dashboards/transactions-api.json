@@ -1,0 +1,80 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "HTTP requests / s (transactions)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_request_duration_seconds_count{job=\"transactions-api\"}[1m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"transactions-api\"}[1m]))",
+          "legendFormat": "rps"
+        }
+      ]
+    },
+    {
+      "title": "5xx error rate %",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(http_server_request_duration_seconds_count{job=\"transactions-api\",http_response_status_code=~\"5..\"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"transactions-api\",http_response_status_code=~\"5..\"}[5m]))) / clamp_min((sum(rate(http_server_request_duration_seconds_count{job=\"transactions-api\"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"transactions-api\"}[5m]))), 1)",
+          "legendFormat": "5xx %"
+        }
+      ]
+    },
+    {
+      "title": "Persistence p95 (ms, success)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(transactions_persistence_duration_milliseconds_bucket{outcome=\"success\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "title": "End-to-end p95 (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(transactions_end_to_end_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "title": "Events published / min",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 16 },
+      "targets": [{ "expr": "sum(increase(transactions_events_published_total[5m]))" }]
+    },
+    {
+      "title": "Publish failures / min",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 16 },
+      "targets": [{ "expr": "sum(increase(transactions_events_publish_failures_total[5m]))" }]
+    },
+    {
+      "title": "Idempotent replays / min",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 16 },
+      "targets": [{ "expr": "sum(increase(transactions_idempotent_replays_total[5m]))" }]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["cashflow", "transactions"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "Transactions API",
+  "uid": "cashflow-transactions",
+  "version": 1
+}
