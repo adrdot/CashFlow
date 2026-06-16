@@ -25,9 +25,9 @@ description: "Lista de tarefas para implementação de segurança AWS e gestão 
 **Propósito**: Preparar a solução, projetos de teste e workspace de infraestrutura AWS necessários pela feature.
 
 - [ ] T001 Criar pastas de implementação de segurança em `tests/` e `infra/aws/` para `CashFlow.Auth.UnitTests`, `CashFlow.Auth.IntegrationTests`, `CashFlow.Auth.ContractTests` e `security/`
-- [ ] T002 Adicionar os projetos de teste de autenticação em `AspireApp1.slnx`
-- [ ] T003 [P] Registrar placeholders de configuração orientados à AWS para serviços de auth, reporting e transactions em `AspireApp1.AppHost/AppHost.cs`
-- [ ] T004 [P] Estender service defaults compartilhados para correlação, cabeçalhos de segurança, health checks e primitivas de rate limiting em `AspireApp1.ServiceDefaults/Extensions.cs`
+- [ ] T002 Adicionar os projetos de teste de autenticação em `Aspire.CashFlow.slnx`
+- [ ] T003 [P] Registrar placeholders de configuração orientados à AWS para serviços de auth, reporting e transactions em `Aspire.CashFlow.AppHost/AppHost.cs`
+- [ ] T004 [P] Estender service defaults compartilhados para correlação, cabeçalhos de segurança, health checks e primitivas de rate limiting em `Aspire.CashFlow.ServiceDefaults/Extensions.cs`
 
 ---
 

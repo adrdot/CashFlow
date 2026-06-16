@@ -1,0 +1,34 @@
+# YACE scrapes CloudWatch metrics from LocalStack (SNS/SQS) for Prometheus.
+# Static jobs avoid Resource Groups Tagging API (not enabled in LocalStack).
+# Requires LocalStack with cloudwatch + sqs on http://host.docker.internal:4566
+apiVersion: v1alpha1
+sts-region: us-east-1
+static:
+  - name: cashflow-transaction-recorded
+    namespace: AWS/SQS
+    regions:
+      - us-east-1
+    dimensions:
+      - name: QueueName
+        value: cashflow-transaction-recorded
+    metrics:
+      - name: ApproximateNumberOfMessagesVisible
+        statistics: [Average]
+        period: 60
+        length: 60
+      - name: ApproximateNumberOfMessagesNotVisible
+        statistics: [Average]
+        period: 60
+        length: 60
+  - name: cashflow-transaction-recorded-dlq
+    namespace: AWS/SQS
+    regions:
+      - us-east-1
+    dimensions:
+      - name: QueueName
+        value: cashflow-transaction-recorded-dlq
+    metrics:
+      - name: ApproximateNumberOfMessagesVisible
+        statistics: [Average]
+        period: 60
+        length: 60

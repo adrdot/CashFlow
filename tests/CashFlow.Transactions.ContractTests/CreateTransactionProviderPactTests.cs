@@ -12,7 +12,10 @@ public sealed class CreateTransactionProviderPactTests : IClassFixture<Transacti
     private readonly TransactionsPactHostFixture fixture;
     private readonly ITestOutputHelper output;
 
-    public CreateTransactionProviderPactTests(TransactionsPactHostFixture fixture, ITestOutputHelper output)
+    public CreateTransactionProviderPactTests(
+        TransactionsPactHostFixture fixture,
+        ITestOutputHelper output
+    )
     {
         this.fixture = fixture;
         this.output = output;
@@ -22,11 +25,14 @@ public sealed class CreateTransactionProviderPactTests : IClassFixture<Transacti
     public void TransactionsApi_HonoursPactWithCashFlowWeb()
     {
         var pactFile = new FileInfo(PactConstants.PactFilePath);
-        Assert.True(pactFile.Exists, $"Pact file not found at {pactFile.FullName}. Run consumer pact tests first.");
+        Assert.True(
+            pactFile.Exists,
+            $"Pact file not found at {pactFile.FullName}. Run consumer pact tests first."
+        );
 
         var config = new PactVerifierConfig
         {
-            Outputters = new List<IOutput> { new XunitOutput(output) }
+            Outputters = new List<IOutput> { new XunitOutput(output) },
         };
 
         using var verifier = new PactVerifier(PactConstants.ProviderName, config);

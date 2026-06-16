@@ -1,4 +1,3 @@
-using CashFlow.Reporting.Api.Observability;
 using CashFlow.Reporting.Benchmarks.Http;
 using NBomber.Contracts;
 using NBomber.CSharp;
@@ -14,7 +13,8 @@ internal sealed record ReportLoadStepResult(
     double P50LatencyMs,
     double P95LatencyMs,
     double FailPercent,
-    string? TopFailStatusCode)
+    string? TopFailStatusCode
+)
 {
     public long TotalCount => OkCount + FailCount;
 }
@@ -26,7 +26,8 @@ internal static class ReportingLoadScenario
         int targetRate,
         int durationSeconds,
         DateOnly reportDate,
-        bool nbomberWarmup = false)
+        bool nbomberWarmup = false
+    )
     {
         var warmupDuration = nbomberWarmup
             ? TimeSpan.FromSeconds(Math.Min(3, Math.Max(1, durationSeconds / 3)))
@@ -34,35 +35,43 @@ internal static class ReportingLoadScenario
 
         var query = $"?date={reportDate:yyyy-MM-dd}";
 
-        var scenario = Scenario.Create($"get_daily_report_rps_{targetRate}", async _ =>
-        {
-            var response = await client.GetAsync($"/api/reports/daily{query}");
+        var scenario = Scenario
+            .Create(
+                $"get_daily_report_rps_{targetRate}",
+                async _ =>
+                {
+                    using var response = await client.GetAsync($"/api/reports/daily{query}");
+                    await response.Content.ReadAsByteArrayAsync();
 
-            return response.IsSuccessStatusCode
-                ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
-                : Response.Fail(statusCode: ((int)response.StatusCode).ToString());
-        })
-        .WithWarmUpDuration(warmupDuration)
-        .WithLoadSimulations(
-            Simulation.Inject(
-                rate: targetRate,
-                interval: TimeSpan.FromSeconds(1),
-                during: TimeSpan.FromSeconds(durationSeconds)));
+                    return response.IsSuccessStatusCode
+                        ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
+                        : Response.Fail(statusCode: ((int)response.StatusCode).ToString());
+                }
+            )
+            .WithWarmUpDuration(warmupDuration)
+            .WithLoadSimulations(
+                Simulation.Inject(
+                    rate: targetRate,
+                    interval: TimeSpan.FromSeconds(1),
+                    during: TimeSpan.FromSeconds(durationSeconds)
+                )
+            );
 
-        var stats = NBomberRunner
-            .RegisterScenarios(scenario)
-            .Run();
+        var stats = NBomberRunner.RegisterScenarios(scenario).Run();
 
-        var scenarioStats = stats.ScenarioStats.FirstOrDefault()
-            ?? throw new InvalidOperationException("No scenario stats were produced by the load test.");
+        var scenarioStats =
+            stats.ScenarioStats.FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                "No scenario stats were produced by the load test."
+            );
 
         var okCount = scenarioStats.Ok.Request.Count;
         var failCount = scenarioStats.Fail.Request.Count;
         var total = okCount + failCount;
         var failPercent = total == 0 ? 100d : failCount * 100d / total;
 
-        var topFailStatus = scenarioStats.Fail.StatusCodes
-            .OrderByDescending(entry => entry.Count)
+        var topFailStatus = scenarioStats
+            .Fail.StatusCodes.OrderByDescending(entry => entry.Count)
             .Select(entry => entry.StatusCode)
             .FirstOrDefault();
 
@@ -75,26 +84,32 @@ internal static class ReportingLoadScenario
             P50LatencyMs: scenarioStats.Ok.Latency.Percent50,
             P95LatencyMs: scenarioStats.Ok.Latency.Percent95,
             FailPercent: failPercent,
-            TopFailStatusCode: topFailStatus);
+            TopFailStatusCode: topFailStatus
+        );
     }
 
     public static async Task PrimeReportCacheAsync(
         HttpClient client,
         DateOnly reportDate,
         int sequentialRequests = 30,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         Console.WriteLine($"Priming report cache ({sequentialRequests} sequential GETs)...");
         var query = $"?date={reportDate:yyyy-MM-dd}";
 
         for (var i = 0; i < sequentialRequests; i++)
         {
-            using var response = await client.GetAsync($"/api/reports/daily{query}", cancellationToken);
+            using var response = await client.GetAsync(
+                $"/api/reports/daily{query}",
+                cancellationToken
+            );
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 throw new InvalidOperationException(
-                    $"Cache priming failed ({(int)response.StatusCode}): {body}");
+                    $"Cache priming failed ({(int)response.StatusCode}): {body}"
+                );
             }
         }
 
@@ -108,7 +123,10 @@ internal static class ReportingHttpLoadRunner
     {
         var options = await ReportingLoadTestOptions.ParseAsync(args);
 
-        await using var clientHolder = ReportingLoadHttpClient.Create(options.BaseUrl, options.BearerToken);
+        await using var clientHolder = ReportingLoadHttpClient.Create(
+            options.BaseUrl,
+            options.BearerToken
+        );
         var reportDate = options.ReportDate ?? new DateOnly(2026, 6, 12);
 
         await ReportingLoadScenario.PrimeReportCacheAsync(clientHolder.Client, reportDate);
@@ -118,7 +136,8 @@ internal static class ReportingHttpLoadRunner
             options.Rate,
             options.DurationSeconds,
             reportDate,
-            nbomberWarmup: false);
+            nbomberWarmup: false
+        );
 
         Console.WriteLine();
         Console.WriteLine("=== Reporting HTTP Load Summary ===");
@@ -126,39 +145,47 @@ internal static class ReportingHttpLoadRunner
         Console.WriteLine($"Auth: {options.DescribeAuth()}");
         Console.WriteLine($"Report date: {reportDate:yyyy-MM-dd}");
         Console.WriteLine(
-            $"Target RPS: {options.Rate} | Duration: {options.DurationSeconds}s | Max failure: {ReportingSlo.MaxFailurePercent}%");
+            $"Target RPS: {options.Rate} | Duration: {options.DurationSeconds}s | Max failure: {ReportingLoadTestSloGates.MaxFailurePercent}%"
+        );
         Console.WriteLine(
-            $"Latency gates: p50 < {ReportingSlo.MaxCachedP50LatencyMs}ms | p95 < {ReportingSlo.MaxCachedP95LatencyMs}ms (cached steady state)");
+            $"Latency gates: p50 < {ReportingLoadTestSloGates.MaxCachedP50LatencyMs}ms | p95 < {ReportingLoadTestSloGates.MaxCachedP95LatencyMs}ms (cached steady state)"
+        );
         Console.WriteLine(
-            $"OK: {result.OkCount} | Fail: {result.FailCount} | Fail %: {result.FailPercent:F2} | RPS: {result.OkRps:F1}");
+            $"OK: {result.OkCount} | Fail: {result.FailCount} | Fail %: {result.FailPercent:F2} | RPS: {result.OkRps:F1}"
+        );
         Console.WriteLine(
-            $"Latency ms — mean: {result.MeanLatencyMs:F1} | p50: {result.P50LatencyMs:F1} | p95: {result.P95LatencyMs:F1}");
+            $"Latency ms — mean: {result.MeanLatencyMs:F1} | p50: {result.P50LatencyMs:F1} | p95: {result.P95LatencyMs:F1}"
+        );
 
         if (result.FailCount > 0 && result.TopFailStatusCode == "429")
         {
             Console.WriteLine(
-                "Hint: HTTP 429 indicates rate limiting. Disable Security:RateLimitingEnabled on reporting-api and restart AppHost.");
+                "Hint: HTTP 429 indicates rate limiting. Disable Security:RateLimitingEnabled on reporting-api and restart AppHost."
+            );
         }
 
-        if (result.FailPercent > ReportingSlo.MaxFailurePercent)
+        if (result.FailPercent > ReportingLoadTestSloGates.MaxFailurePercent)
         {
             var statusHint = string.IsNullOrWhiteSpace(result.TopFailStatusCode)
                 ? string.Empty
                 : $" Top failure status: {result.TopFailStatusCode}.";
             throw new InvalidOperationException(
-                $"Failure rate {result.FailPercent:F2}% exceeded target of {ReportingSlo.MaxFailurePercent}%.{statusHint}");
+                $"Failure rate {result.FailPercent:F2}% exceeded target of {ReportingLoadTestSloGates.MaxFailurePercent}%.{statusHint}"
+            );
         }
 
-        if (result.P50LatencyMs > ReportingSlo.MaxCachedP50LatencyMs)
+        if (result.P50LatencyMs > ReportingLoadTestSloGates.MaxCachedP50LatencyMs)
         {
             throw new InvalidOperationException(
-                $"Cached read p50 {result.P50LatencyMs:F1}ms exceeded target of {ReportingSlo.MaxCachedP50LatencyMs}ms.");
+                $"Cached read p50 {result.P50LatencyMs:F1}ms exceeded target of {ReportingLoadTestSloGates.MaxCachedP50LatencyMs}ms."
+            );
         }
 
-        if (result.P95LatencyMs > ReportingSlo.MaxCachedP95LatencyMs)
+        if (result.P95LatencyMs > ReportingLoadTestSloGates.MaxCachedP95LatencyMs)
         {
             throw new InvalidOperationException(
-                $"Cached read p95 {result.P95LatencyMs:F1}ms exceeded target of {ReportingSlo.MaxCachedP95LatencyMs}ms.");
+                $"Cached read p95 {result.P95LatencyMs:F1}ms exceeded target of {ReportingLoadTestSloGates.MaxCachedP95LatencyMs}ms."
+            );
         }
     }
 }

@@ -1,5 +1,5 @@
-using CashFlow.Reporting.Application.Abstractions;
 using CashFlow.Reporting.Infrastructure.Caching;
+using CashFlow.Reporting.Infrastructure.Caching.Abstractions;
 using CashFlow.Reporting.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,22 +12,33 @@ internal static class ProjectionStorageBenchmarkRunner
 
     public static async Task RunAsync(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
+        var connectionString =
+            Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
             ?? "Server=127.0.0.1,1433;Database=reporting-db;User Id=sa;Password=CashFlow@Dev123!;TrustServerCertificate=True;Encrypt=False";
 
         await using var sqlContext = CreateContext(connectionString);
         await sqlContext.Database.MigrateAsync();
 
         var sqlElapsed = await BenchmarkSqlProjectionAsync(sqlContext);
-        var dynamoElapsed = DynamoDbProjectionIdempotencyStore.EstimateConditionalPutLatency(Iterations);
+        var dynamoElapsed = DynamoDbProjectionIdempotencyStore.EstimateConditionalPutLatency(
+            Iterations
+        );
 
         Console.WriteLine();
         Console.WriteLine("=== Projection Idempotency Benchmark (spike) ===");
-        Console.WriteLine($"SQL optimized insert + summary UPSERT ({Iterations} new keys): {sqlElapsed.TotalMilliseconds:F0} ms");
-        Console.WriteLine($"DynamoDB conditional PutItem estimate ({Iterations} ops, in-memory stub): {dynamoElapsed.TotalMilliseconds:F0} ms");
+        Console.WriteLine(
+            $"SQL optimized insert + summary UPSERT ({Iterations} new keys): {sqlElapsed.TotalMilliseconds:F0} ms"
+        );
+        Console.WriteLine(
+            $"DynamoDB conditional PutItem estimate ({Iterations} ops, in-memory stub): {dynamoElapsed.TotalMilliseconds:F0} ms"
+        );
         Console.WriteLine();
-        Console.WriteLine("Orientação de decisão: ver docs/adr/002-infraestrutura-stack-recursos.md");
-        Console.WriteLine("SQL remains primary storage when optimized path sustains relay throughput with lag ~0.");
+        Console.WriteLine(
+            "Orientação de decisão: ver docs/adr/002-infraestrutura-stack-recursos.md"
+        );
+        Console.WriteLine(
+            "SQL remains primary storage when optimized path sustains relay throughput with lag ~0."
+        );
     }
 
     private static async Task<TimeSpan> BenchmarkSqlProjectionAsync(ReportingDbContext dbContext)
@@ -54,7 +65,8 @@ internal static class ProjectionStorageBenchmarkRunner
                 $"Benchmark {index}",
                 reportDate,
                 DateTimeOffset.UtcNow,
-                CancellationToken.None);
+                CancellationToken.None
+            );
         }
 
         return DateTime.UtcNow - started;

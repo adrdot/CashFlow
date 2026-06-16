@@ -1,5 +1,6 @@
-using AspireApp1.ServiceDefaults.Authentication;
-using AspireApp1.ServiceDefaults.Security;
+using Aspire.CashFlow.ServiceDefaults;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
+using Aspire.CashFlow.ServiceDefaults.Security;
 using CashFlow.Reporting.Api.Configuration;
 using CashFlow.Reporting.Api.Endpoints;
 using CashFlow.Reporting.Application.Abstractions;
@@ -26,12 +27,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseExceptionHandler();
-app.UseCashFlowHttpsRedirection();
-app.UseCashFlowSecurity();
-app.UseMiddleware<ReportingObservabilityMiddleware>();
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseCashFlowApiPipeline();
+app.UseCashFlowApiAuthentication();
 
 app.MapReportingEndpoints();
 app.MapDefaultEndpoints();

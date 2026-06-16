@@ -17,7 +17,10 @@ public sealed class TransactionMetricsTests
         var measurement = Assert.Single(harness.Measurements);
         Assert.Equal("transactions.created", measurement.InstrumentName);
         Assert.Equal(1L, measurement.Value);
-        Assert.Contains(measurement.Tags, tag => tag.Key == TransactionMetrics.Tags.Type && (string?)tag.Value == "debit");
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == TransactionMetrics.Tags.Type && (string?)tag.Value == "debit"
+        );
     }
 
     [Fact]
@@ -30,7 +33,10 @@ public sealed class TransactionMetricsTests
 
         var measurement = Assert.Single(harness.Measurements);
         Assert.Equal("transactions.persistence.failures", measurement.InstrumentName);
-        Assert.Contains(measurement.Tags, tag => tag.Key == TransactionMetrics.Tags.Stage && (string?)tag.Value == "eventstore");
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == TransactionMetrics.Tags.Stage && (string?)tag.Value == "eventstore"
+        );
     }
 
     [Fact]
@@ -44,20 +50,10 @@ public sealed class TransactionMetricsTests
         var measurement = Assert.Single(harness.Measurements);
         Assert.Equal("transactions.persistence.duration", measurement.InstrumentName);
         Assert.Equal(42d, measurement.Value);
-        Assert.Contains(measurement.Tags, tag => tag.Key == TransactionMetrics.Tags.Outcome && (string?)tag.Value == "success");
-    }
-
-    [Fact]
-    public void RecordHttpRequest_RecordsStatusClassTag()
-    {
-        using var harness = new MetricsTestHarness();
-        var metrics = harness.CreateMetrics();
-
-        metrics.RecordHttpRequest("POST", "/api/transactions", 503);
-
-        var measurement = Assert.Single(harness.Measurements);
-        Assert.Equal("transactions.requests.total", measurement.InstrumentName);
-        Assert.Contains(measurement.Tags, tag => tag.Key == TransactionMetrics.Tags.StatusClass && (string?)tag.Value == "5xx");
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == TransactionMetrics.Tags.Outcome && (string?)tag.Value == "success"
+        );
     }
 
     [Fact]
@@ -70,7 +66,10 @@ public sealed class TransactionMetricsTests
 
         var measurement = Assert.Single(harness.Measurements);
         Assert.Equal("transactions.publish.duration", measurement.InstrumentName);
-        Assert.Contains(measurement.Tags, tag => tag.Key == TransactionMetrics.Tags.Outcome && (string?)tag.Value == "success");
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == TransactionMetrics.Tags.Outcome && (string?)tag.Value == "success"
+        );
     }
 
     private sealed class MetricsTestHarness : IDisposable
@@ -116,17 +115,19 @@ public sealed class TransactionMetricsTests
             Instrument instrument,
             T measurement,
             ReadOnlySpan<KeyValuePair<string, object?>> tags,
-            object? state) where T : struct
+            object? state
+        )
+            where T : struct
         {
-            Measurements.Add(new RecordedMeasurement(
-                instrument.Name,
-                measurement!,
-                tags.ToArray()));
+            Measurements.Add(
+                new RecordedMeasurement(instrument.Name, measurement!, tags.ToArray())
+            );
         }
     }
 
     private sealed record RecordedMeasurement(
         string InstrumentName,
         object Value,
-        KeyValuePair<string, object?>[] Tags);
+        KeyValuePair<string, object?>[] Tags
+    );
 }

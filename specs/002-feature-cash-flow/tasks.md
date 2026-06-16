@@ -24,9 +24,9 @@ description: "Lista de tarefas para implementação da tela de fluxo de caixa"
 **Propósito**: Criar a estrutura do recorte de transações e conectá-la à solução existente hospedada no Aspire.
 
 - [ ] T001 Criar pastas da solução de transações em `src/` e `tests/` para `CashFlow.Transactions.Api`, `CashFlow.Transactions.Application`, `CashFlow.Transactions.Domain`, `CashFlow.Transactions.Infrastructure`, `CashFlow.Transactions.UnitTests`, `CashFlow.Transactions.IntegrationTests` e `CashFlow.Transactions.ContractTests`
-- [ ] T002 Adicionar projetos de transações à solução e ao grafo de referências em `AspireApp1.slnx`
-- [ ] T003 [P] Registrar a API de transações e suas dependências de infraestrutura em `AspireApp1.AppHost/AppHost.cs`
-- [ ] T004 [P] Estender os service defaults compartilhados para health checks de transações, políticas de resiliência e métricas em `AspireApp1.ServiceDefaults/Extensions.cs`
+- [ ] T002 Adicionar projetos de transações à solução e ao grafo de referências em `Aspire.CashFlow.slnx`
+- [ ] T003 [P] Registrar a API de transações e suas dependências de infraestrutura em `Aspire.CashFlow.AppHost/AppHost.cs`
+- [ ] T004 [P] Estender os service defaults compartilhados para health checks de transações, políticas de resiliência e métricas em `Aspire.CashFlow.ServiceDefaults/Extensions.cs`
 
 ---
 

@@ -1,0 +1,52 @@
+<Solution>
+
+  <Folder Name="/src/">
+
+    <Project Path="src/CashFlow.Auth.Api/CashFlow.Auth.Api.csproj" />
+
+    <Project Path="src/CashFlow.Reporting.Api/CashFlow.Reporting.Api.csproj" />
+
+    <Project Path="src/CashFlow.Transactions.Api/CashFlow.Transactions.Api.csproj" />
+
+    <Project Path="src/CashFlow.Transactions.Relay/CashFlow.Transactions.Relay.csproj" />
+
+    <Project Path="src/CashFlow.Reporting.Worker/CashFlow.Reporting.Worker.csproj" />
+
+    <Project Path="src/CashFlow.Web/CashFlow.Web.csproj" />
+
+    <Project Path="src/Aspire.CashFlow.AppHost/Aspire.CashFlow.AppHost.csproj" />
+
+    <Project Path="src/Aspire.CashFlow.ServiceDefaults/Aspire.CashFlow.ServiceDefaults.csproj" />
+
+  </Folder>
+
+  <Folder Name="/tests/">
+
+    <Project Path="tests/CashFlow.Auth.UnitTests/CashFlow.Auth.UnitTests.csproj" />
+
+    <Project Path="tests/CashFlow.Auth.IntegrationTests/CashFlow.Auth.IntegrationTests.csproj" />
+
+    <Project Path="tests/CashFlow.Auth.ContractTests/CashFlow.Auth.ContractTests.csproj" />
+
+    <Project Path="tests/CashFlow.Reporting.ContractTests/CashFlow.Reporting.ContractTests.csproj" />
+
+    <Project Path="tests/CashFlow.Reporting.IntegrationTests/CashFlow.Reporting.IntegrationTests.csproj" />
+
+    <Project Path="tests/CashFlow.Reporting.UnitTests/CashFlow.Reporting.UnitTests.csproj" />
+
+    <Project Path="tests/CashFlow.Transactions.ContractTests/CashFlow.Transactions.ContractTests.csproj" />
+
+    <Project Path="tests/CashFlow.Transactions.IntegrationTests/CashFlow.Transactions.IntegrationTests.csproj" />
+
+    <Project Path="tests/CashFlow.Transactions.UnitTests/CashFlow.Transactions.UnitTests.csproj" />
+
+    <Project Path="tests/CashFlow.Transactions.Benchmarks/CashFlow.Transactions.Benchmarks.csproj" />
+
+    <Project Path="tests/CashFlow.Reporting.Benchmarks/CashFlow.Reporting.Benchmarks.csproj" />
+
+    <Project Path="tests/CashFlow.FunctionalTests/CashFlow.FunctionalTests.csproj" />
+
+  </Folder>
+
+</Solution>
+

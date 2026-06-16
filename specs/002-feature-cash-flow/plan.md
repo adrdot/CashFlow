@@ -68,8 +68,8 @@ specs/002-feature-cash-flow/
 ### Código-Fonte (raiz do repositório)
 
 ```text
-AspireApp1.AppHost/
-AspireApp1.ServiceDefaults/
+Aspire.CashFlow.AppHost/
+Aspire.CashFlow.ServiceDefaults/
 
 ├── src/
 │   ├── CashFlow.Auth.Api/

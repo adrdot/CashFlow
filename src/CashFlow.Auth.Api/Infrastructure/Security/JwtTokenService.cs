@@ -1,11 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using CashFlow.Auth.Application.Abstractions;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Application.Contracts;
 using CashFlow.Auth.Domain.Entities;
-using CashFlow.Auth.Infrastructure.Configuration;
-using Microsoft.Extensions.Options;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace CashFlow.Auth.Infrastructure.Security;
@@ -24,17 +23,21 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),
             new(ClaimTypes.Email, userAccount.Email),
-            new(ClaimTypes.Name, userAccount.DisplayName)
+            new(ClaimTypes.Name, userAccount.DisplayName),
         };
 
-        var signingCredentials = new SigningCredentials(GetSigningKey(jwtOptions), SecurityAlgorithms.HmacSha256);
+        var signingCredentials = new SigningCredentials(
+            GetSigningKey(jwtOptions),
+            SecurityAlgorithms.HmacSha256
+        );
         var jwtToken = new JwtSecurityToken(
             issuer: jwtOptions.Issuer,
             audience: jwtOptions.Audience,
             claims: claims,
             notBefore: DateTime.UtcNow,
             expires: expiresAtUtc.UtcDateTime,
-            signingCredentials: signingCredentials);
+            signingCredentials: signingCredentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(jwtToken);
     }
@@ -48,17 +51,21 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),
             new(ClaimTypes.Email, userAccount.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(RefreshTokenUseClaim, "refresh")
+            new(RefreshTokenUseClaim, "refresh"),
         };
 
-        var signingCredentials = new SigningCredentials(GetSigningKey(jwtOptions), SecurityAlgorithms.HmacSha256);
+        var signingCredentials = new SigningCredentials(
+            GetSigningKey(jwtOptions),
+            SecurityAlgorithms.HmacSha256
+        );
         var jwtToken = new JwtSecurityToken(
             issuer: jwtOptions.Issuer,
             audience: jwtOptions.Audience,
             claims: claims,
             notBefore: DateTime.UtcNow,
             expires: expiresAtUtc.UtcDateTime,
-            signingCredentials: signingCredentials);
+            signingCredentials: signingCredentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(jwtToken);
     }
@@ -73,7 +80,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         try
         {
             var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(token, CreateValidationParameters(jwtOptions), out var validatedToken);
+            var principal = handler.ValidateToken(
+                token,
+                CreateValidationParameters(jwtOptions),
+                out var validatedToken
+            );
             if (validatedToken is not JwtSecurityToken jwtToken)
             {
                 return null;
@@ -83,7 +94,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             {
                 Email = principal.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
                 DisplayName = principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
-                ExpiresAtUtc = new DateTimeOffset(jwtToken.ValidTo, TimeSpan.Zero)
+                ExpiresAtUtc = new DateTimeOffset(jwtToken.ValidTo, TimeSpan.Zero),
             };
         }
         catch
@@ -102,7 +113,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         try
         {
             var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(refreshToken, CreateValidationParameters(jwtOptions), out var validatedToken);
+            var principal = handler.ValidateToken(
+                refreshToken,
+                CreateValidationParameters(jwtOptions),
+                out var validatedToken
+            );
             if (validatedToken is not JwtSecurityToken jwtToken)
             {
                 return null;
@@ -134,7 +149,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = GetSigningKey(options),
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromSeconds(30)
+            ClockSkew = TimeSpan.FromSeconds(options.ClockSkewSeconds),
         };
     }
 

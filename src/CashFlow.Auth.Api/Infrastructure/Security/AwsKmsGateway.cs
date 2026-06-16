@@ -1,11 +1,16 @@
 using Amazon.KeyManagementService;
 using Amazon.KeyManagementService.Model;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 
 namespace CashFlow.Auth.Infrastructure.Security;
 
 internal sealed class AwsKmsGateway(IAmazonKeyManagementService kmsClient) : IKmsGateway
 {
-    public async Task<byte[]?> EncryptAsync(string keyId, byte[] plaintext, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> EncryptAsync(
+        string keyId,
+        byte[] plaintext,
+        CancellationToken cancellationToken = default
+    )
     {
         if (plaintext.Length == 0)
         {
@@ -14,11 +19,10 @@ internal sealed class AwsKmsGateway(IAmazonKeyManagementService kmsClient) : IKm
 
         try
         {
-            var response = await kmsClient.EncryptAsync(new EncryptRequest
-            {
-                KeyId = keyId,
-                Plaintext = new MemoryStream(plaintext)
-            }, cancellationToken);
+            var response = await kmsClient.EncryptAsync(
+                new EncryptRequest { KeyId = keyId, Plaintext = new MemoryStream(plaintext) },
+                cancellationToken
+            );
 
             return response.CiphertextBlob?.ToArray();
         }
@@ -32,7 +36,10 @@ internal sealed class AwsKmsGateway(IAmazonKeyManagementService kmsClient) : IKm
         }
     }
 
-    public async Task<byte[]?> DecryptAsync(byte[] ciphertext, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> DecryptAsync(
+        byte[] ciphertext,
+        CancellationToken cancellationToken = default
+    )
     {
         if (ciphertext.Length == 0)
         {
@@ -41,10 +48,10 @@ internal sealed class AwsKmsGateway(IAmazonKeyManagementService kmsClient) : IKm
 
         try
         {
-            var response = await kmsClient.DecryptAsync(new DecryptRequest
-            {
-                CiphertextBlob = new MemoryStream(ciphertext)
-            }, cancellationToken);
+            var response = await kmsClient.DecryptAsync(
+                new DecryptRequest { CiphertextBlob = new MemoryStream(ciphertext) },
+                cancellationToken
+            );
 
             return response.Plaintext?.ToArray();
         }

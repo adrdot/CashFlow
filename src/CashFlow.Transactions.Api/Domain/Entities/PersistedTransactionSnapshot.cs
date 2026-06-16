@@ -6,4 +6,5 @@ public sealed record PersistedTransactionSnapshot(
     decimal Amount,
     string Description,
     DateOnly TransactionDate,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc
+);

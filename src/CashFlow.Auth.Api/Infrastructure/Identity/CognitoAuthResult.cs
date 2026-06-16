@@ -14,7 +14,8 @@ public sealed class CognitoAuthResult
 
     public string? ChallengeSession { get; init; }
 
-    public bool RequiresChallenge => !string.IsNullOrWhiteSpace(ChallengeName) && !string.IsNullOrWhiteSpace(ChallengeSession);
+    public bool RequiresChallenge =>
+        !string.IsNullOrWhiteSpace(ChallengeName) && !string.IsNullOrWhiteSpace(ChallengeSession);
 
     public bool IsInvalidCredentials { get; init; }
 

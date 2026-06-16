@@ -1,10 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
-using Amazon;
-using Amazon.Runtime;
 using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
-using CashFlow.Transactions.Application.Abstractions;
+using CashFlow.Transactions.Infrastructure.Messaging.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Infrastructure.Observability;
 using Microsoft.Extensions.Logging;
@@ -25,7 +23,8 @@ public sealed class SnsTransactionEventPublisher : ITransactionEventPublisher
         IAmazonSimpleNotificationService snsClient,
         IOptions<MessagingOptions> options,
         TransactionMetrics metrics,
-        ILogger<SnsTransactionEventPublisher> logger)
+        ILogger<SnsTransactionEventPublisher> logger
+    )
     {
         this.snsClient = snsClient;
         this.options = options.Value;
@@ -33,7 +32,10 @@ public sealed class SnsTransactionEventPublisher : ITransactionEventPublisher
         this.logger = logger;
     }
 
-    public async Task PublishAsync(TransactionRecordedEvent transactionEvent, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(
+        TransactionRecordedEvent transactionEvent,
+        CancellationToken cancellationToken = default
+    )
     {
         if (!options.Enabled || string.IsNullOrWhiteSpace(options.SnsTopicArn))
         {
@@ -56,14 +58,14 @@ public sealed class SnsTransactionEventPublisher : ITransactionEventPublisher
                     ["EventType"] = new MessageAttributeValue
                     {
                         DataType = "String",
-                        StringValue = "TransactionRecorded"
+                        StringValue = "TransactionRecorded",
                     },
                     ["TransactionId"] = new MessageAttributeValue
                     {
                         DataType = "String",
-                        StringValue = transactionEvent.TransactionId.ToString()
-                    }
-                }
+                        StringValue = transactionEvent.TransactionId.ToString(),
+                    },
+                },
             };
 
             await snsClient.PublishAsync(request, cancellationToken);
@@ -71,31 +73,12 @@ public sealed class SnsTransactionEventPublisher : ITransactionEventPublisher
             logger.LogInformation(
                 TransactionLogEvents.OutboxEventPublished,
                 "Published transaction event {TransactionId} to SNS topic.",
-                transactionEvent.TransactionId);
+                transactionEvent.TransactionId
+            );
         }
         finally
         {
             metrics.RecordPublishDuration(stopwatch.Elapsed, succeeded ? "success" : "failure");
         }
-    }
-}
-
-public static class SnsClientFactory
-{
-    public static IAmazonSimpleNotificationService Create(MessagingOptions options)
-    {
-        var config = new AmazonSimpleNotificationServiceConfig
-        {
-            RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region)
-        };
-
-        if (!string.IsNullOrWhiteSpace(options.ServiceUrl))
-        {
-            config.ServiceURL = options.ServiceUrl;
-            config.UseHttp = options.ServiceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
-        }
-
-        var credentials = new BasicAWSCredentials("test", "test");
-        return new AmazonSimpleNotificationServiceClient(credentials, config);
     }
 }

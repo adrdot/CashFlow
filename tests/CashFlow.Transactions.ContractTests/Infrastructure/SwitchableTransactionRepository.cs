@@ -1,6 +1,6 @@
-using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Domain.Entities;
 using CashFlow.Transactions.Infrastructure.Persistence;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 
 namespace CashFlow.Transactions.ContractTests.Infrastructure;
 
@@ -15,7 +15,8 @@ internal sealed class SwitchableTransactionRepository : ITransactionRepository
         CashFlowTransaction transaction,
         string userId,
         string? idempotencyKey = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return PersistenceFails
             ? failingRepository.SaveAsync(transaction, userId, idempotencyKey, cancellationToken)

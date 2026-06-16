@@ -10,11 +10,15 @@ public sealed class ReportingMessagingOptions
 
     public string ServiceUrl { get; set; } = string.Empty;
 
-    public string Region { get; set; } = "us-east-1";
+    public string Region { get; set; } = string.Empty;
 
-    public int MaxMessages { get; set; } = 10;
+    public int MaxMessages { get; set; }
 
-    public int WaitTimeSeconds { get; set; } = 20;
+    public int WaitTimeSeconds { get; set; }
 
-    public int VisibilityTimeoutSeconds { get; set; } = 30;
+    public int VisibilityTimeoutSeconds { get; set; }
+
+    public int QueueMissingRetrySeconds { get; set; }
+
+    public int ErrorRetrySeconds { get; set; }
 }

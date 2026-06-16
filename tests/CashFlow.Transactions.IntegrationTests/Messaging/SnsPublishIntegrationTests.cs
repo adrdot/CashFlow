@@ -1,6 +1,6 @@
 using System.Diagnostics.Metrics;
 using System.Text.Json;
-using CashFlow.Transactions.Application.Abstractions;
+using CashFlow.Transactions.Infrastructure.Messaging.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Infrastructure.Messaging;
 using CashFlow.Transactions.Infrastructure.Observability;
@@ -12,8 +12,8 @@ using Microsoft.Extensions.Options;
 namespace CashFlow.Transactions.IntegrationTests.Messaging;
 
 [Trait("Category", "Docker")]
-public sealed class SnsPublishIntegrationTests(LocalStackMessagingFixture localStack) :
-    IClassFixture<LocalStackMessagingFixture>
+public sealed class SnsPublishIntegrationTests(LocalStackMessagingFixture localStack)
+    : IClassFixture<LocalStackMessagingFixture>
 {
     [Fact]
     public async Task SnsPublisher_PublishesTransactionEvent_ToLocalStackSns()
@@ -32,20 +32,23 @@ public sealed class SnsPublishIntegrationTests(LocalStackMessagingFixture localS
             Amount = 88.00m,
             Description = "SNS publish LocalStack test",
             TransactionDate = new DateOnly(2026, 6, 14),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         ITransactionEventPublisher publisher = new SnsTransactionEventPublisher(
             localStack.CreateSnsClient(),
-            Options.Create(new MessagingOptions
-            {
-                Enabled = true,
-                SnsTopicArn = localStack.TopicArn,
-                ServiceUrl = localStack.ServiceUrl,
-                Region = "us-east-1"
-            }),
+            Options.Create(
+                new MessagingOptions
+                {
+                    Enabled = true,
+                    SnsTopicArn = localStack.TopicArn,
+                    ServiceUrl = localStack.ServiceUrl,
+                    Region = "us-east-1",
+                }
+            ),
             CreateTestMetrics(),
-            NullLogger<SnsTransactionEventPublisher>.Instance);
+            NullLogger<SnsTransactionEventPublisher>.Instance
+        );
 
         await publisher.PublishAsync(recordedEvent);
 
@@ -62,6 +65,7 @@ public sealed class SnsPublishIntegrationTests(LocalStackMessagingFixture localS
         using var provider = services.BuildServiceProvider();
         return new TransactionMetrics(
             provider.GetRequiredService<IMeterFactory>(),
-            provider.GetRequiredService<RelaySubscriptionStats>());
+            provider.GetRequiredService<RelaySubscriptionStats>()
+        );
     }
 }

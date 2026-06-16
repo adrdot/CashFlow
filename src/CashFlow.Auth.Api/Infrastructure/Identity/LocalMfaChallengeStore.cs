@@ -5,10 +5,18 @@ public sealed class LocalMfaChallengeStore
     private readonly object sync = new();
     private readonly Dictionary<string, LocalMfaChallenge> challenges = new(StringComparer.Ordinal);
 
-    public string CreateChallenge(string email, TimeSpan ttl, CognitoAuthResult? pendingCognitoAuth = null)
+    public string CreateChallenge(
+        string email,
+        TimeSpan ttl,
+        CognitoAuthResult? pendingCognitoAuth = null
+    )
     {
         var session = Guid.NewGuid().ToString("N");
-        var challenge = new LocalMfaChallenge(email, DateTimeOffset.UtcNow.Add(ttl), pendingCognitoAuth);
+        var challenge = new LocalMfaChallenge(
+            email,
+            DateTimeOffset.UtcNow.Add(ttl),
+            pendingCognitoAuth
+        );
 
         lock (sync)
         {
@@ -48,7 +56,8 @@ public sealed class LocalMfaChallengeStore
         string email,
         string mfaCode,
         string expectedCode,
-        out CognitoAuthResult? pendingCognitoAuth)
+        out CognitoAuthResult? pendingCognitoAuth
+    )
     {
         pendingCognitoAuth = null;
 
@@ -59,7 +68,8 @@ public sealed class LocalMfaChallengeStore
                 return false;
             }
 
-            var isValid = string.Equals(challenge.Email, email, StringComparison.OrdinalIgnoreCase)
+            var isValid =
+                string.Equals(challenge.Email, email, StringComparison.OrdinalIgnoreCase)
                 && challenge.ExpiresAtUtc >= DateTimeOffset.UtcNow
                 && string.Equals(mfaCode, expectedCode, StringComparison.Ordinal);
 
@@ -78,5 +88,6 @@ public sealed class LocalMfaChallengeStore
     private sealed record LocalMfaChallenge(
         string Email,
         DateTimeOffset ExpiresAtUtc,
-        CognitoAuthResult? PendingCognitoAuth = null);
+        CognitoAuthResult? PendingCognitoAuth = null
+    );
 }

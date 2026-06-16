@@ -2,25 +2,20 @@ namespace CashFlow.Transactions.Domain.Entities;
 
 public sealed record PersistenceOutcome
 {
-    public static PersistenceOutcome Success(Guid transactionId) => new()
-    {
-        IsPersisted = true,
-        TransactionId = transactionId
-    };
+    public static PersistenceOutcome Success(Guid transactionId) =>
+        new() { IsPersisted = true, TransactionId = transactionId };
 
-    public static PersistenceOutcome Replay(PersistedTransactionSnapshot snapshot) => new()
-    {
-        IsPersisted = true,
-        IsReplay = true,
-        TransactionId = snapshot.TransactionId,
-        ReplayedSnapshot = snapshot
-    };
+    public static PersistenceOutcome Replay(PersistedTransactionSnapshot snapshot) =>
+        new()
+        {
+            IsPersisted = true,
+            IsReplay = true,
+            TransactionId = snapshot.TransactionId,
+            ReplayedSnapshot = snapshot,
+        };
 
-    public static PersistenceOutcome Failure(string reason) => new()
-    {
-        IsPersisted = false,
-        FailureReason = reason
-    };
+    public static PersistenceOutcome Failure(string reason) =>
+        new() { IsPersisted = false, FailureReason = reason };
 
     public bool IsPersisted { get; init; }
 

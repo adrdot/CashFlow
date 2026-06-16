@@ -1,10 +1,9 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Amazon;
-using Amazon.Runtime;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using CashFlow.Reporting.Infrastructure.Messaging;
+using Aspire.CashFlow.ServiceDefaults.Aws;
 using CashFlow.Reporting.Infrastructure.Observability;
 using CashFlow.Reporting.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +18,9 @@ public sealed class SqsTransactionProjectionConsumer(
     IAmazonSQS sqsClient,
     ReportingMetrics metrics,
     IOptions<ReportingMessagingOptions> options,
-    ILogger<SqsTransactionProjectionConsumer> logger) : BackgroundService
+    IOptions<AwsOptions> awsOptions,
+    ILogger<SqsTransactionProjectionConsumer> logger
+) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -28,29 +29,39 @@ public sealed class SqsTransactionProjectionConsumer(
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.SqsQueueUrl))
         {
-            logger.LogWarning("SQS queue URL is not configured. Reporting projection consumer is idle.");
+            logger.LogWarning(
+                "SQS queue URL is not configured. Reporting projection consumer is idle."
+            );
             return;
         }
 
-        var queueUrl = LocalStackSqsUrlNormalizer.Normalize(settings.SqsQueueUrl, settings.ServiceUrl);
+        var queueUrl = LocalStackSqsUrlNormalizer.Normalize(
+            settings.SqsQueueUrl,
+            settings.ServiceUrl,
+            awsOptions.Value
+        );
 
         logger.LogInformation(
             "Reporting projection consumer started for queue {QueueUrl} (service {ServiceUrl}).",
             queueUrl,
-            settings.ServiceUrl);
+            settings.ServiceUrl
+        );
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var response = await sqsClient.ReceiveMessageAsync(new ReceiveMessageRequest
-                {
-                    QueueUrl = queueUrl,
-                    MaxNumberOfMessages = settings.MaxMessages,
-                    WaitTimeSeconds = settings.WaitTimeSeconds,
-                    VisibilityTimeout = settings.VisibilityTimeoutSeconds,
-                    MessageAttributeNames = ["All"]
-                }, stoppingToken);
+                var response = await sqsClient.ReceiveMessageAsync(
+                    new ReceiveMessageRequest
+                    {
+                        QueueUrl = queueUrl,
+                        MaxNumberOfMessages = settings.MaxMessages,
+                        WaitTimeSeconds = settings.WaitTimeSeconds,
+                        VisibilityTimeout = settings.VisibilityTimeoutSeconds,
+                        MessageAttributeNames = ["All"],
+                    },
+                    stoppingToken
+                );
 
                 foreach (var message in response.Messages)
                 {
@@ -61,9 +72,14 @@ public sealed class SqsTransactionProjectionConsumer(
             {
                 logger.LogWarning(
                     ex,
-                    "SQS queue {QueueUrl} is not available yet. Retrying in 10 seconds.",
-                    queueUrl);
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                    "SQS queue {QueueUrl} is not available yet. Retrying in {RetrySeconds} seconds.",
+                    queueUrl,
+                    settings.QueueMissingRetrySeconds
+                );
+                await Task.Delay(
+                    TimeSpan.FromSeconds(settings.QueueMissingRetrySeconds),
+                    stoppingToken
+                );
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -72,7 +88,7 @@ public sealed class SqsTransactionProjectionConsumer(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Unexpected reporting projection consumer failure.");
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(settings.ErrorRetrySeconds), stoppingToken);
             }
         }
     }
@@ -80,11 +96,19 @@ public sealed class SqsTransactionProjectionConsumer(
     private static bool IsQueueMissing(AmazonSQSException exception)
     {
         return exception is QueueDoesNotExistException
-            || string.Equals(exception.ErrorCode, "AWS.SimpleQueueService.NonExistentQueue", StringComparison.Ordinal)
+            || string.Equals(
+                exception.ErrorCode,
+                "AWS.SimpleQueueService.NonExistentQueue",
+                StringComparison.Ordinal
+            )
             || exception.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task ProcessMessageAsync(string queueUrl, Message message, CancellationToken cancellationToken)
+    private async Task ProcessMessageAsync(
+        string queueUrl,
+        Message message,
+        CancellationToken cancellationToken
+    )
     {
         using var scope = scopeFactory.CreateScope();
         var writer = scope.ServiceProvider.GetRequiredService<TransactionProjectionWriter>();
@@ -101,7 +125,8 @@ public sealed class SqsTransactionProjectionConsumer(
                 transactionEvent.Description,
                 transactionEvent.TransactionDate,
                 transactionEvent.CreatedAtUtc,
-                cancellationToken);
+                cancellationToken
+            );
 
             await sqsClient.DeleteMessageAsync(queueUrl, message.ReceiptHandle, cancellationToken);
 
@@ -122,8 +147,10 @@ public sealed class SqsTransactionProjectionConsumer(
         using var document = JsonDocument.Parse(body);
         if (document.RootElement.TryGetProperty("Message", out var snsEnvelope))
         {
-            return JsonSerializer.Deserialize<TransactionRecordedMessage>(snsEnvelope.GetString()!, JsonOptions)
-                ?? throw new InvalidOperationException("SNS envelope message is invalid.");
+            return JsonSerializer.Deserialize<TransactionRecordedMessage>(
+                    snsEnvelope.GetString()!,
+                    JsonOptions
+                ) ?? throw new InvalidOperationException("SNS envelope message is invalid.");
         }
 
         return JsonSerializer.Deserialize<TransactionRecordedMessage>(body, JsonOptions)
@@ -150,20 +177,31 @@ public sealed record TransactionRecordedMessage
 
 public static class SqsClientFactory
 {
-    public static IAmazonSQS Create(ReportingMessagingOptions options)
+    public static IAmazonSQS Create(ReportingMessagingOptions messagingOptions, AwsOptions awsOptions)
     {
+        var region = AwsCredentialResolver.ResolveRegion(awsOptions, messagingOptions.Region);
         var config = new AmazonSQSConfig
         {
-            RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region)
+            RegionEndpoint = RegionEndpoint.GetBySystemName(region),
         };
 
-        if (!string.IsNullOrWhiteSpace(options.ServiceUrl))
+        if (!string.IsNullOrWhiteSpace(messagingOptions.ServiceUrl))
         {
-            config.ServiceURL = options.ServiceUrl;
-            config.UseHttp = options.ServiceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+            config.ServiceURL = messagingOptions.ServiceUrl;
+            config.UseHttp = messagingOptions.ServiceUrl.StartsWith(
+                "http://",
+                StringComparison.OrdinalIgnoreCase
+            );
+        }
+        else if (!string.IsNullOrWhiteSpace(awsOptions.ServiceUrl))
+        {
+            config.ServiceURL = awsOptions.ServiceUrl;
+            config.UseHttp = awsOptions.ServiceUrl.StartsWith(
+                "http://",
+                StringComparison.OrdinalIgnoreCase
+            );
         }
 
-        var credentials = new BasicAWSCredentials("test", "test");
-        return new AmazonSQSClient(credentials, config);
+        return new AmazonSQSClient(AwsCredentialResolver.Resolve(awsOptions), config);
     }
 }

@@ -10,7 +10,8 @@ public sealed class AuthApiClient(HttpClient httpClient)
     public async Task<OAuthTokenResponse?> ExchangeOAuthCodeAsync(
         string code,
         string redirectUri,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -20,16 +21,19 @@ public sealed class AuthApiClient(HttpClient httpClient)
                 {
                     GrantType = "authorization_code",
                     Code = code,
-                    RedirectUri = redirectUri
+                    RedirectUri = redirectUri,
                 },
-                cancellationToken);
+                cancellationToken
+            );
 
             if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken: cancellationToken);
+            return await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(
+                cancellationToken: cancellationToken
+            );
         }
         catch (HttpRequestException)
         {
@@ -37,15 +41,23 @@ public sealed class AuthApiClient(HttpClient httpClient)
         }
     }
 
-    public async Task<LoginResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<LoginResult> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            using var response = await httpClient.PostAsJsonAsync("/api/auth/login", request, cancellationToken);
+            using var response = await httpClient.PostAsJsonAsync(
+                "/api/auth/login",
+                request,
+                cancellationToken
+            );
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<LoginResult>(cancellationToken: cancellationToken)
-                    ?? LoginResult.Failure("Authentication service returned an empty response.");
+                return await response.Content.ReadFromJsonAsync<LoginResult>(
+                        cancellationToken: cancellationToken
+                    ) ?? LoginResult.Failure("Authentication service returned an empty response.");
             }
 
             var errorMessage = await ReadProblemDetailAsync(response, cancellationToken);
@@ -54,7 +66,9 @@ public sealed class AuthApiClient(HttpClient httpClient)
                 return LoginResult.Failure(errorMessage ?? "Invalid email or password.");
             }
 
-            return LoginResult.Failure(errorMessage ?? "Authentication service is unavailable. Try again later.");
+            return LoginResult.Failure(
+                errorMessage ?? "Authentication service is unavailable. Try again later."
+            );
         }
         catch (HttpRequestException)
         {
@@ -62,19 +76,24 @@ public sealed class AuthApiClient(HttpClient httpClient)
         }
     }
 
-    public async Task<LoginResult> RefreshSessionAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<LoginResult> RefreshSessionAsync(
+        string refreshToken,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             using var response = await httpClient.PostAsJsonAsync(
                 "/api/auth/refresh",
                 new RefreshTokenRequest { RefreshToken = refreshToken },
-                cancellationToken);
+                cancellationToken
+            );
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<LoginResult>(cancellationToken: cancellationToken)
-                    ?? LoginResult.Failure("Authentication service returned an empty response.");
+                return await response.Content.ReadFromJsonAsync<LoginResult>(
+                        cancellationToken: cancellationToken
+                    ) ?? LoginResult.Failure("Authentication service returned an empty response.");
             }
 
             var errorMessage = await ReadProblemDetailAsync(response, cancellationToken);
@@ -86,7 +105,10 @@ public sealed class AuthApiClient(HttpClient httpClient)
         }
     }
 
-    public async Task<SessionState?> ValidateSessionAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<SessionState?> ValidateSessionAsync(
+        string token,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -99,7 +121,9 @@ public sealed class AuthApiClient(HttpClient httpClient)
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<SessionState>(cancellationToken: cancellationToken);
+            return await response.Content.ReadFromJsonAsync<SessionState>(
+                cancellationToken: cancellationToken
+            );
         }
         catch (HttpRequestException)
         {
@@ -121,24 +145,34 @@ public sealed class AuthApiClient(HttpClient httpClient)
         }
     }
 
-    private static async Task<string?> ReadProblemDetailAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<string?> ReadProblemDetailAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
-            if (document.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+            using var document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken
+            );
+            if (
+                document.RootElement.TryGetProperty("detail", out var detail)
+                && detail.ValueKind == JsonValueKind.String
+            )
             {
                 return detail.GetString();
             }
 
-            if (document.RootElement.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+            if (
+                document.RootElement.TryGetProperty("title", out var title)
+                && title.ValueKind == JsonValueKind.String
+            )
             {
                 return title.GetString();
             }
         }
-        catch (JsonException)
-        {
-        }
+        catch (JsonException) { }
 
         return null;
     }

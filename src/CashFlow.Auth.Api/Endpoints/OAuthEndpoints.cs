@@ -1,6 +1,7 @@
-using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Application.Contracts;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.OAuth.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.Api.Endpoints;
@@ -9,195 +10,260 @@ public static class OAuthEndpoints
 {
     public static IEndpointRouteBuilder MapOAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/auth/oauth/authorize", (
-            ICognitoOAuthService oauthService,
-            IOptions<CognitoOptions> cognitoOptions,
-            IOptions<CognitoOAuthOptions> oauthOptions,
-            HttpContext httpContext,
-            string redirect_uri,
-            string state,
-            string? client_id,
-            string response_type) =>
-        {
-            if (!oauthService.IsEnabled)
-            {
-                return Results.Problem(
-                    title: "OAuth is disabled",
-                    detail: "OAuth2 authorization-code flow is not enabled for this environment.",
-                    statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
-
-            if (!string.Equals(response_type, "code", StringComparison.Ordinal))
-            {
-                return Results.Problem(
-                    title: "Unsupported response type",
-                    detail: "Only response_type=code is supported.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            if (string.IsNullOrWhiteSpace(redirect_uri) || string.IsNullOrWhiteSpace(state))
-            {
-                return Results.Problem(
-                    title: "Invalid request",
-                    detail: "redirect_uri and state are required.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            var resolvedRedirectUri = ResolveRedirectUri(redirect_uri, oauthOptions.Value);
-            var authorizeUrl = oauthService.BuildAuthorizeUrl(resolvedRedirectUri, state, client_id ?? cognitoOptions.Value.ClientId);
-
-            if (oauthOptions.Value.UseDevHostedUi && authorizeUrl.StartsWith('/'))
-            {
-                var request = httpContext.Request;
-                authorizeUrl = $"{request.Scheme}://{request.Host}{authorizeUrl}";
-            }
-
-            return Results.Redirect(authorizeUrl);
-        })
-        .WithName("OAuthAuthorize")
-        .WithSummary("Starts the OAuth2 authorization-code flow.");
-
-        app.MapGet("/api/auth/oauth/login", (
-            ICognitoOAuthService oauthService,
-            IOptions<CognitoOAuthOptions> oauthOptions,
-            string redirect_uri,
-            string state,
-            string client_id,
-            string? scope,
-            string? error) =>
-        {
-            if (!oauthService.IsEnabled || !oauthOptions.Value.UseDevHostedUi)
-            {
-                return Results.Problem(
-                    title: "Hosted UI unavailable",
-                    detail: "The development Hosted UI is not enabled.",
-                    statusCode: StatusCodes.Status404NotFound);
-            }
-
-            return Results.Content(
-                BuildDevHostedUiHtml(redirect_uri, state, client_id, scope, error),
-                "text/html");
-        })
-        .WithName("OAuthDevHostedUi")
-        .WithSummary("Development Hosted UI for OAuth2 authorization-code flow.");
-
-        app.MapPost("/api/auth/oauth/login", async (
-            ICognitoOAuthService oauthService,
-            IOptions<CognitoOAuthOptions> oauthOptions,
-            HttpContext httpContext,
-            CancellationToken cancellationToken) =>
-        {
-            if (!oauthService.IsEnabled || !oauthOptions.Value.UseDevHostedUi)
-            {
-                return Results.Problem(
-                    title: "Hosted UI unavailable",
-                    detail: "The development Hosted UI is not enabled.",
-                    statusCode: StatusCodes.Status404NotFound);
-            }
-
-            var form = await httpContext.Request.ReadFormAsync(cancellationToken);
-            var redirectUri = form["redirect_uri"].ToString();
-            var state = form["state"].ToString();
-            var clientId = form["client_id"].ToString();
-            var email = form["email"].ToString();
-            var password = form["password"].ToString();
-            var mfaCode = form["mfa_code"].ToString();
-            var challengeSession = form["challenge_session"].ToString();
-            var challengeName = form["challenge_name"].ToString();
-
-            if (string.IsNullOrWhiteSpace(redirectUri) || string.IsNullOrWhiteSpace(state) || string.IsNullOrWhiteSpace(clientId))
-            {
-                return Results.Content(
-                    BuildDevHostedUiHtml(redirectUri, state, clientId, null, "Missing OAuth parameters."),
-                    "text/html",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            var resolvedRedirectUri = ResolveRedirectUri(redirectUri, oauthOptions.Value);
-            var result = await oauthService.AuthorizeDevLoginAsync(
-                new LoginRequest
+        app.MapGet(
+                "/api/auth/oauth/authorize",
+                (
+                    ICognitoOAuthService oauthService,
+                    IOptions<CognitoOptions> cognitoOptions,
+                    IOptions<CognitoOAuthOptions> oauthOptions,
+                    HttpContext httpContext,
+                    string redirect_uri,
+                    string state,
+                    string? client_id,
+                    string response_type
+                ) =>
                 {
-                    Email = email,
-                    Password = password,
-                    MfaCode = string.IsNullOrWhiteSpace(mfaCode) ? null : mfaCode,
-                    ChallengeSession = string.IsNullOrWhiteSpace(challengeSession) ? null : challengeSession,
-                    ChallengeName = string.IsNullOrWhiteSpace(challengeName) ? null : challengeName
-                },
-                resolvedRedirectUri,
-                state,
-                clientId,
-                cancellationToken);
+                    if (!oauthService.IsEnabled)
+                    {
+                        return Results.Problem(
+                            title: "OAuth is disabled",
+                            detail: "OAuth2 authorization-code flow is not enabled for this environment.",
+                            statusCode: StatusCodes.Status503ServiceUnavailable
+                        );
+                    }
 
-            if (result.Succeeded && !string.IsNullOrWhiteSpace(result.RedirectUrl))
-            {
-                return Results.Redirect(result.RedirectUrl);
-            }
+                    if (!string.Equals(response_type, "code", StringComparison.Ordinal))
+                    {
+                        return Results.Problem(
+                            title: "Unsupported response type",
+                            detail: "Only response_type=code is supported.",
+                            statusCode: StatusCodes.Status400BadRequest
+                        );
+                    }
 
-            var loginResult = result.LoginResult ?? LoginResult.Failure("Authentication failed.");
-            var errorMessage = loginResult.RequiresMfa
-                ? loginResult.ErrorMessage ?? "Enter your MFA code."
-                : loginResult.ErrorMessage ?? "Invalid email or password.";
+                    if (string.IsNullOrWhiteSpace(redirect_uri) || string.IsNullOrWhiteSpace(state))
+                    {
+                        return Results.Problem(
+                            title: "Invalid request",
+                            detail: "redirect_uri and state are required.",
+                            statusCode: StatusCodes.Status400BadRequest
+                        );
+                    }
 
-            return Results.Content(
-                BuildDevHostedUiHtml(
-                    redirectUri,
-                    state,
-                    clientId,
-                    null,
-                    errorMessage,
-                    loginResult.RequiresMfa,
-                    loginResult.ChallengeSession,
-                    loginResult.ChallengeName,
-                    email),
-                "text/html",
-                statusCode: loginResult.RequiresMfa ? StatusCodes.Status200OK : StatusCodes.Status401Unauthorized);
-        })
-        .DisableAntiforgery()
-        .WithName("OAuthDevHostedUiSubmit")
-        .WithSummary("Authenticates through the development Hosted UI.");
+                    var resolvedRedirectUri = ResolveRedirectUri(redirect_uri, oauthOptions.Value);
+                    var authorizeUrl = oauthService.BuildAuthorizeUrl(
+                        resolvedRedirectUri,
+                        state,
+                        client_id ?? cognitoOptions.Value.ClientId
+                    );
 
-        app.MapPost("/api/auth/oauth/token", async (
-            ICognitoOAuthService oauthService,
-            OAuthTokenRequest request,
-            CancellationToken cancellationToken) =>
-        {
-            if (!oauthService.IsEnabled)
-            {
-                return Results.Problem(
-                    title: "OAuth is disabled",
-                    detail: "OAuth2 token exchange is not enabled for this environment.",
-                    statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
+                    if (oauthOptions.Value.UseDevHostedUi && authorizeUrl.StartsWith('/'))
+                    {
+                        var request = httpContext.Request;
+                        authorizeUrl = $"{request.Scheme}://{request.Host}{authorizeUrl}";
+                    }
 
-            if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.RedirectUri))
-            {
-                return Results.Problem(
-                    title: "Invalid request",
-                    detail: "code and redirect_uri are required.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
+                    return Results.Redirect(authorizeUrl);
+                }
+            )
+            .WithName("OAuthAuthorize")
+            .WithSummary("Starts the OAuth2 authorization-code flow.");
 
-            var tokenResponse = await oauthService.ExchangeAuthorizationCodeAsync(request, cancellationToken);
-            if (tokenResponse is null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
-            {
-                return Results.Problem(
-                    title: "Invalid authorization code",
-                    detail: "The authorization code is invalid, expired, or already used.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
+        app.MapGet(
+                "/api/auth/oauth/login",
+                (
+                    ICognitoOAuthService oauthService,
+                    IOptions<CognitoOAuthOptions> oauthOptions,
+                    string redirect_uri,
+                    string state,
+                    string client_id,
+                    string? scope,
+                    string? error
+                ) =>
+                {
+                    if (!oauthService.IsEnabled || !oauthOptions.Value.UseDevHostedUi)
+                    {
+                        return Results.Problem(
+                            title: "Hosted UI unavailable",
+                            detail: "The development Hosted UI is not enabled.",
+                            statusCode: StatusCodes.Status404NotFound
+                        );
+                    }
 
-            return Results.Ok(tokenResponse);
-        })
-        .WithName("OAuthToken")
-        .WithSummary("Exchanges an OAuth2 authorization code for access and refresh tokens.");
+                    return Results.Content(
+                        BuildDevHostedUiHtml(redirect_uri, state, client_id, scope, error),
+                        "text/html"
+                    );
+                }
+            )
+            .WithName("OAuthDevHostedUi")
+            .WithSummary("Development Hosted UI for OAuth2 authorization-code flow.");
+
+        app.MapPost(
+                "/api/auth/oauth/login",
+                async (
+                    ICognitoOAuthService oauthService,
+                    IOptions<CognitoOAuthOptions> oauthOptions,
+                    HttpContext httpContext,
+                    CancellationToken cancellationToken
+                ) =>
+                {
+                    if (!oauthService.IsEnabled || !oauthOptions.Value.UseDevHostedUi)
+                    {
+                        return Results.Problem(
+                            title: "Hosted UI unavailable",
+                            detail: "The development Hosted UI is not enabled.",
+                            statusCode: StatusCodes.Status404NotFound
+                        );
+                    }
+
+                    var form = await httpContext.Request.ReadFormAsync(cancellationToken);
+                    var redirectUri = form["redirect_uri"].ToString();
+                    var state = form["state"].ToString();
+                    var clientId = form["client_id"].ToString();
+                    var email = form["email"].ToString();
+                    var password = form["password"].ToString();
+                    var mfaCode = form["mfa_code"].ToString();
+                    var challengeSession = form["challenge_session"].ToString();
+                    var challengeName = form["challenge_name"].ToString();
+
+                    if (
+                        string.IsNullOrWhiteSpace(redirectUri)
+                        || string.IsNullOrWhiteSpace(state)
+                        || string.IsNullOrWhiteSpace(clientId)
+                    )
+                    {
+                        return Results.Content(
+                            BuildDevHostedUiHtml(
+                                redirectUri,
+                                state,
+                                clientId,
+                                null,
+                                "Missing OAuth parameters."
+                            ),
+                            "text/html",
+                            statusCode: StatusCodes.Status400BadRequest
+                        );
+                    }
+
+                    var resolvedRedirectUri = ResolveRedirectUri(redirectUri, oauthOptions.Value);
+                    var result = await oauthService.AuthorizeDevLoginAsync(
+                        new LoginRequest
+                        {
+                            Email = email,
+                            Password = password,
+                            MfaCode = string.IsNullOrWhiteSpace(mfaCode) ? null : mfaCode,
+                            ChallengeSession = string.IsNullOrWhiteSpace(challengeSession)
+                                ? null
+                                : challengeSession,
+                            ChallengeName = string.IsNullOrWhiteSpace(challengeName)
+                                ? null
+                                : challengeName,
+                        },
+                        resolvedRedirectUri,
+                        state,
+                        clientId,
+                        cancellationToken
+                    );
+
+                    if (result.Succeeded && !string.IsNullOrWhiteSpace(result.RedirectUrl))
+                    {
+                        return Results.Redirect(result.RedirectUrl);
+                    }
+
+                    var loginResult =
+                        result.LoginResult ?? LoginResult.Failure("Authentication failed.");
+                    var errorMessage = loginResult.RequiresMfa
+                        ? loginResult.ErrorMessage ?? "Enter your MFA code."
+                        : loginResult.ErrorMessage ?? "Invalid email or password.";
+
+                    return Results.Content(
+                        BuildDevHostedUiHtml(
+                            redirectUri,
+                            state,
+                            clientId,
+                            null,
+                            errorMessage,
+                            loginResult.RequiresMfa,
+                            loginResult.ChallengeSession,
+                            loginResult.ChallengeName,
+                            email
+                        ),
+                        "text/html",
+                        statusCode: loginResult.RequiresMfa
+                            ? StatusCodes.Status200OK
+                            : StatusCodes.Status401Unauthorized
+                    );
+                }
+            )
+            .DisableAntiforgery()
+            .WithName("OAuthDevHostedUiSubmit")
+            .WithSummary("Authenticates through the development Hosted UI.");
+
+        app.MapPost(
+                "/api/auth/oauth/token",
+                async (
+                    ICognitoOAuthService oauthService,
+                    OAuthTokenRequest request,
+                    CancellationToken cancellationToken
+                ) =>
+                {
+                    if (!oauthService.IsEnabled)
+                    {
+                        return Results.Problem(
+                            title: "OAuth is disabled",
+                            detail: "OAuth2 token exchange is not enabled for this environment.",
+                            statusCode: StatusCodes.Status503ServiceUnavailable
+                        );
+                    }
+
+                    if (
+                        string.IsNullOrWhiteSpace(request.Code)
+                        || string.IsNullOrWhiteSpace(request.RedirectUri)
+                    )
+                    {
+                        return Results.Problem(
+                            title: "Invalid request",
+                            detail: "code and redirect_uri are required.",
+                            statusCode: StatusCodes.Status400BadRequest
+                        );
+                    }
+
+                    var tokenResponse = await oauthService.ExchangeAuthorizationCodeAsync(
+                        request,
+                        cancellationToken
+                    );
+                    if (
+                        tokenResponse is null
+                        || string.IsNullOrWhiteSpace(tokenResponse.AccessToken)
+                    )
+                    {
+                        return Results.Problem(
+                            title: "Invalid authorization code",
+                            detail: "The authorization code is invalid, expired, or already used.",
+                            statusCode: StatusCodes.Status400BadRequest
+                        );
+                    }
+
+                    return Results.Ok(tokenResponse);
+                }
+            )
+            .WithName("OAuthToken")
+            .WithSummary("Exchanges an OAuth2 authorization code for access and refresh tokens.");
 
         return app;
     }
 
     private static string ResolveRedirectUri(string redirectUri, CognitoOAuthOptions oauthOptions)
     {
-        if (!string.IsNullOrWhiteSpace(oauthOptions.RedirectUri)
-            && string.Equals(redirectUri, oauthOptions.RedirectUri, StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.IsNullOrWhiteSpace(oauthOptions.RedirectUri)
+            && string.Equals(
+                redirectUri,
+                oauthOptions.RedirectUri,
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return oauthOptions.RedirectUri;
         }
@@ -214,13 +280,16 @@ public static class OAuthEndpoints
         bool isMfaStep = false,
         string? challengeSession = null,
         string? challengeName = null,
-        string? email = null)
+        string? email = null
+    )
     {
         var encodedRedirectUri = System.Net.WebUtility.HtmlEncode(redirectUri);
         var encodedState = System.Net.WebUtility.HtmlEncode(state);
         var encodedClientId = System.Net.WebUtility.HtmlEncode(clientId);
         var encodedScope = System.Net.WebUtility.HtmlEncode(scope ?? "openid email profile");
-        var encodedChallengeSession = System.Net.WebUtility.HtmlEncode(challengeSession ?? string.Empty);
+        var encodedChallengeSession = System.Net.WebUtility.HtmlEncode(
+            challengeSession ?? string.Empty
+        );
         var encodedChallengeName = System.Net.WebUtility.HtmlEncode(challengeName ?? string.Empty);
         var encodedEmail = System.Net.WebUtility.HtmlEncode(email ?? string.Empty);
         var alert = string.IsNullOrWhiteSpace(error)

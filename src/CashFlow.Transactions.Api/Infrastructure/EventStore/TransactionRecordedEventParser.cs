@@ -8,7 +8,11 @@ internal static class TransactionRecordedEventParser
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static bool TryParse(ReadOnlyMemory<byte> data, string eventType, out TransactionRecordedEvent? transactionEvent)
+    public static bool TryParse(
+        ReadOnlyMemory<byte> data,
+        string eventType,
+        out TransactionRecordedEvent? transactionEvent
+    )
     {
         transactionEvent = null;
 
@@ -24,7 +28,10 @@ internal static class TransactionRecordedEventParser
 
         try
         {
-            transactionEvent = JsonSerializer.Deserialize<TransactionRecordedEvent>(data.Span, JsonOptions);
+            transactionEvent = JsonSerializer.Deserialize<TransactionRecordedEvent>(
+                data.Span,
+                JsonOptions
+            );
             return transactionEvent is not null && transactionEvent.TransactionId != Guid.Empty;
         }
         catch (JsonException)
@@ -44,17 +51,26 @@ internal static class TransactionRecordedEventParser
         try
         {
             using var document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind == JsonValueKind.Array && document.RootElement.GetArrayLength() > 0)
+            if (
+                document.RootElement.ValueKind == JsonValueKind.Array
+                && document.RootElement.GetArrayLength() > 0
+            )
             {
                 var first = document.RootElement[0];
                 if (first.TryGetProperty("data", out var dataElement))
                 {
-                    transactionEvent = dataElement.Deserialize<TransactionRecordedEvent>(JsonOptions);
-                    return transactionEvent is not null && transactionEvent.TransactionId != Guid.Empty;
+                    transactionEvent = dataElement.Deserialize<TransactionRecordedEvent>(
+                        JsonOptions
+                    );
+                    return transactionEvent is not null
+                        && transactionEvent.TransactionId != Guid.Empty;
                 }
             }
 
-            transactionEvent = JsonSerializer.Deserialize<TransactionRecordedEvent>(json, JsonOptions);
+            transactionEvent = JsonSerializer.Deserialize<TransactionRecordedEvent>(
+                json,
+                JsonOptions
+            );
             return transactionEvent is not null && transactionEvent.TransactionId != Guid.Empty;
         }
         catch (JsonException)

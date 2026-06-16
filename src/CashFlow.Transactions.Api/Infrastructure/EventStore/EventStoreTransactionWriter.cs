@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using CashFlow.Transactions.Application.Contracts;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
 using CashFlow.Transactions.Infrastructure.Observability;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +12,8 @@ namespace CashFlow.Transactions.Infrastructure.EventStore;
 public sealed class EventStoreTransactionWriter(
     HttpClient httpClient,
     TransactionMetrics metrics,
-    ILogger<EventStoreTransactionWriter> logger) : IEventStoreTransactionWriter
+    ILogger<EventStoreTransactionWriter> logger
+) : IEventStoreTransactionWriter
 {
     private const string ExpectedVersionAny = "-2";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -20,7 +22,8 @@ public sealed class EventStoreTransactionWriter(
         TransactionRecordedEvent transactionEvent,
         Guid eventId,
         string? idempotencyKey = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var stopwatch = Stopwatch.StartNew();
         var succeeded = false;
@@ -28,26 +31,38 @@ public sealed class EventStoreTransactionWriter(
         try
         {
             var streamName = EventStoreStreamReader.BuildStreamName(transactionEvent.UserId);
-            var payload = JsonSerializer.Serialize(new[]
-            {
-                new
+            var payload = JsonSerializer.Serialize(
+                new[]
                 {
-                    eventId,
-                    eventType = "TransactionRecorded",
-                    data = transactionEvent,
-                    metadata = new
+                    new
                     {
-                        schemaVersion = 1,
-                        transactionEvent.TransactionId,
-                        transactionEvent.CreatedAtUtc,
-                        idempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim()
-                    }
-                }
-            }, JsonOptions);
+                        eventId,
+                        eventType = "TransactionRecorded",
+                        data = transactionEvent,
+                        metadata = new
+                        {
+                            schemaVersion = 1,
+                            transactionEvent.TransactionId,
+                            transactionEvent.CreatedAtUtc,
+                            idempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey)
+                                ? null
+                                : idempotencyKey.Trim(),
+                        },
+                    },
+                },
+                JsonOptions
+            );
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"streams/{Uri.EscapeDataString(streamName)}")
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"streams/{Uri.EscapeDataString(streamName)}"
+            )
             {
-                Content = new StringContent(payload, Encoding.UTF8, "application/vnd.eventstore.events+json")
+                Content = new StringContent(
+                    payload,
+                    Encoding.UTF8,
+                    "application/vnd.eventstore.events+json"
+                ),
             };
             request.Headers.Add("ES-ExpectedVersion", ExpectedVersionAny);
             request.Headers.TryAddWithoutValidation("Kurrent-ExpectedVersion", ExpectedVersionAny);
@@ -57,7 +72,8 @@ public sealed class EventStoreTransactionWriter(
             {
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 throw new InvalidOperationException(
-                    $"EventStore append failed with {(int)response.StatusCode}: {body}");
+                    $"EventStore append failed with {(int)response.StatusCode}: {body}"
+                );
             }
 
             succeeded = true;
@@ -65,13 +81,15 @@ public sealed class EventStoreTransactionWriter(
                 "Appended transaction {TransactionId} to stream {StreamName} with event id {EventId}.",
                 transactionEvent.TransactionId,
                 streamName,
-                eventId);
+                eventId
+            );
         }
         finally
         {
             metrics.RecordEventStoreAppendDuration(
                 stopwatch.Elapsed,
-                succeeded ? "success" : "failure");
+                succeeded ? "success" : "failure"
+            );
         }
     }
 }
@@ -83,9 +101,11 @@ public static class EventStoreHttpClientFactory
         var client = new HttpClient
         {
             BaseAddress = new Uri(options.HttpEndpoint.TrimEnd('/') + "/"),
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(options.HttpTimeoutSeconds),
         };
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json")
+        );
         return client;
     }
 }

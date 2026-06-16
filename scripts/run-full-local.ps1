@@ -23,7 +23,7 @@ $messagingSetupScript = Join-Path $localstackRoot "setup-messaging.ps1"
 $monitoringSetupScript = Join-Path $localstackRoot "setup-monitoring.ps1"
 $apiGatewaySetupScript = Join-Path $localstackRoot "setup-api-gateway.ps1"
 $transactionsStackSetupScript = Join-Path $transactionsStackRoot "setup-transactions-stack.ps1"
-$appHost = Join-Path $repoRoot "AspireApp1.AppHost"
+$appHost = Join-Path $repoRoot "src\Aspire.CashFlow.AppHost"
 $localstackEndpoint = "http://localhost:4566"
 
 $localstackContainer = "cashflow-localstack"
@@ -423,6 +423,7 @@ if (-not $SkipObservability) {
     Write-Host "  Prometheus:  http://localhost:9090"
     Write-Host "  Grafana:     http://localhost:3000 (admin / admin) -> Messaging Pipeline dashboard"
     Write-Host "  OTEL bridge: http://127.0.0.1:4318 -> Prometheus :8889 (relay + reporting-worker metrics)"
+    Write-Host "  YACE:        http://localhost:5000/metrics (SQS depth via LocalStack CloudWatch)"
 }
 Write-Host ""
 Write-Host "  Press Ctrl+C to stop Aspire and remove local containers."

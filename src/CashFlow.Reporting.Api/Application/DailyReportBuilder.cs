@@ -29,51 +29,64 @@ public static class DailyReportBuilder
                 [
                     new ChartMetricResult { Label = "Debits", Value = summary.TotalDebits },
                     new ChartMetricResult { Label = "Credits", Value = summary.TotalCredits },
-                    new ChartMetricResult { Label = "Balance", Value = balance }
+                    new ChartMetricResult { Label = "Balance", Value = balance },
                 ],
                 BarSeries =
                 [
-                    new ChartMetricResult { Label = "Debit Entries", Value = summary.DebitEntryCount },
-                    new ChartMetricResult { Label = "Credit Entries", Value = summary.CreditEntryCount },
-                    new ChartMetricResult { Label = "Total Entries", Value = summary.TransactionVolume }
+                    new ChartMetricResult
+                    {
+                        Label = "Debit Entries",
+                        Value = summary.DebitEntryCount,
+                    },
+                    new ChartMetricResult
+                    {
+                        Label = "Credit Entries",
+                        Value = summary.CreditEntryCount,
+                    },
+                    new ChartMetricResult
+                    {
+                        Label = "Total Entries",
+                        Value = summary.TransactionVolume,
+                    },
                 ],
                 PieSeries =
                 [
                     new ChartMetricResult { Label = "Debits", Value = summary.TotalDebits },
-                    new ChartMetricResult { Label = "Credits", Value = summary.TotalCredits }
-                ]
-            }
+                    new ChartMetricResult { Label = "Credits", Value = summary.TotalCredits },
+                ],
+            },
         };
     }
 
-    private static DailyReportResult CreateZeroState(DateOnly reportDate) => new()
-    {
-        ReportDate = reportDate,
-        TotalDebits = 0m,
-        TotalCredits = 0m,
-        ConsolidatedBalance = 0m,
-        TransactionVolume = 0,
-        HasData = false,
-        FromCache = false,
-        Dataset = new DashboardDatasetResult
+    private static DailyReportResult CreateZeroState(DateOnly reportDate) =>
+        new()
         {
-            LineSeries =
-            [
-                new ChartMetricResult { Label = "Debits", Value = 0m },
-                new ChartMetricResult { Label = "Credits", Value = 0m },
-                new ChartMetricResult { Label = "Balance", Value = 0m }
-            ],
-            BarSeries =
-            [
-                new ChartMetricResult { Label = "Debit Entries", Value = 0m },
-                new ChartMetricResult { Label = "Credit Entries", Value = 0m },
-                new ChartMetricResult { Label = "Total Entries", Value = 0m }
-            ],
-            PieSeries =
-            [
-                new ChartMetricResult { Label = "Debits", Value = 0m },
-                new ChartMetricResult { Label = "Credits", Value = 0m }
-            ]
-        }
-    };
+            ReportDate = reportDate,
+            TotalDebits = 0m,
+            TotalCredits = 0m,
+            ConsolidatedBalance = 0m,
+            TransactionVolume = 0,
+            HasData = false,
+            FromCache = false,
+            Dataset = new DashboardDatasetResult
+            {
+                LineSeries =
+                [
+                    new ChartMetricResult { Label = "Debits", Value = 0m },
+                    new ChartMetricResult { Label = "Credits", Value = 0m },
+                    new ChartMetricResult { Label = "Balance", Value = 0m },
+                ],
+                BarSeries =
+                [
+                    new ChartMetricResult { Label = "Debit Entries", Value = 0m },
+                    new ChartMetricResult { Label = "Credit Entries", Value = 0m },
+                    new ChartMetricResult { Label = "Total Entries", Value = 0m },
+                ],
+                PieSeries =
+                [
+                    new ChartMetricResult { Label = "Debits", Value = 0m },
+                    new ChartMetricResult { Label = "Credits", Value = 0m },
+                ],
+            },
+        };
 }

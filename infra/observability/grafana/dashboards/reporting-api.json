@@ -12,7 +12,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "sum(rate(reporting_requests_total[1m]))",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{job=\"reporting-api\"}[1m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"reporting-api\"}[1m]))",
           "legendFormat": "rps"
         }
       ]
@@ -23,7 +23,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "100 * sum(rate(reporting_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(reporting_requests_total[5m])), 1)",
+          "expr": "100 * (sum(rate(http_server_request_duration_seconds_count{job=\"reporting-api\",http_response_status_code=~\"5..\"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"reporting-api\",http_response_status_code=~\"5..\"}[5m]))) / clamp_min((sum(rate(http_server_request_duration_seconds_count{job=\"reporting-api\"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job=\"reporting-api\"}[5m]))), 1)",
           "legendFormat": "5xx %"
         }
       ]
@@ -80,11 +80,11 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
       "targets": [
         {
-          "expr": "max(reporting_sqs_visible_messages)",
+          "expr": "max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
           "legendFormat": "visible"
         },
         {
-          "expr": "max(reporting_sqs_in_flight_messages)",
+          "expr": "max(aws_sqs_approximate_number_of_messages_not_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
           "legendFormat": "in flight"
         }
       ]

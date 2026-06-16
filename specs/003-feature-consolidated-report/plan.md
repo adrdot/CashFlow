@@ -68,8 +68,8 @@ specs/003-feature-consolidated-report/
 ### Código-fonte (raiz do repositório)
 
 ```text
-AspireApp1.AppHost/
-AspireApp1.ServiceDefaults/
+Aspire.CashFlow.AppHost/
+Aspire.CashFlow.ServiceDefaults/
 
 ├── src/
 │   ├── CashFlow.Auth.Api/

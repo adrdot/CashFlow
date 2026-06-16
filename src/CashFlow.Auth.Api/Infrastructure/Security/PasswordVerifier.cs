@@ -1,5 +1,5 @@
-using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Domain.Entities;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.AspNetCore.Identity;
 
 namespace CashFlow.Auth.Infrastructure.Security;
@@ -15,7 +15,11 @@ public sealed class PasswordVerifier : IPasswordVerifier
 
     public bool Verify(UserAccount userAccount, string password)
     {
-        var verificationResult = passwordHasher.VerifyHashedPassword(userAccount, userAccount.PasswordHash, password);
+        var verificationResult = passwordHasher.VerifyHashedPassword(
+            userAccount,
+            userAccount.PasswordHash,
+            password
+        );
         return verificationResult != PasswordVerificationResult.Failed;
     }
 }

@@ -7,7 +7,7 @@ $cognitoRoot = Join-Path $repoRoot "infra\cognito-local"
 $generatedEnv = Join-Path $cognitoRoot "generated\cognito.env"
 $setupScript = Join-Path $cognitoRoot "setup-cognito.ps1"
 $stopScript = Join-Path $cognitoRoot "stop-cognito.ps1"
-$appHost = Join-Path $repoRoot "AspireApp1.AppHost"
+$appHost = Join-Path $repoRoot "src\Aspire.CashFlow.AppHost"
 
 $script:cleanupDone = $false
 

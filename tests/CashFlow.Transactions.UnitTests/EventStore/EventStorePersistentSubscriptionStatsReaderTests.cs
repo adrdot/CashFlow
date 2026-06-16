@@ -17,7 +17,10 @@ public sealed class EventStorePersistentSubscriptionStatsReaderTests
             }
             """;
 
-        var stats = EventStorePersistentSubscriptionStatsReader.TryParseStats(json, "cashflow-sns-relay");
+        var stats = EventStorePersistentSubscriptionStatsReader.TryParseStats(
+            json,
+            "cashflow-sns-relay"
+        );
 
         Assert.NotNull(stats);
         Assert.Equal(20, stats.Value.LagEvents);
@@ -44,7 +47,10 @@ public sealed class EventStorePersistentSubscriptionStatsReaderTests
             ]
             """;
 
-        var stats = EventStorePersistentSubscriptionStatsReader.TryParseStats(json, "cashflow-sns-relay");
+        var stats = EventStorePersistentSubscriptionStatsReader.TryParseStats(
+            json,
+            "cashflow-sns-relay"
+        );
 
         Assert.NotNull(stats);
         Assert.Equal(5, stats.Value.LagEvents);

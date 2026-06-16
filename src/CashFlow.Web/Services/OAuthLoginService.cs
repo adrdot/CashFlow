@@ -9,7 +9,8 @@ public sealed class OAuthLoginService(
     IOptions<CognitoOAuthOptions> oauthOptions,
     IOptions<DemoAccountOptions> demoAccountOptions,
     IConfiguration configuration,
-    NavigationManager navigationManager)
+    NavigationManager navigationManager
+)
 {
     private readonly CognitoOAuthOptions oauth = oauthOptions.Value;
 
@@ -20,7 +21,10 @@ public sealed class OAuthLoginService(
         var authApiBase = ResolveAuthApiPublicBaseAddress();
         var redirectUri = ResolveRedirectUri();
         var clientId = configuration["Cognito:ClientId"] ?? string.Empty;
-        var scope = string.Join(' ', oauth.Scopes.Length == 0 ? ["openid", "email", "profile"] : oauth.Scopes);
+        var scope = string.Join(
+            ' ',
+            oauth.Scopes.Length == 0 ? ["openid", "email", "profile"] : oauth.Scopes
+        );
 
         var query = new Dictionary<string, string?>
         {
@@ -28,10 +32,12 @@ public sealed class OAuthLoginService(
             ["response_type"] = "code",
             ["redirect_uri"] = redirectUri,
             ["state"] = state,
-            ["scope"] = scope
+            ["scope"] = scope,
         };
 
-        var authorizePath = QueryString.Create(query.Where(pair => !string.IsNullOrWhiteSpace(pair.Value)));
+        var authorizePath = QueryString.Create(
+            query.Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+        );
         return $"{authApiBase.TrimEnd('/')}/api/auth/oauth/authorize{authorizePath}";
     }
 
@@ -46,12 +52,16 @@ public sealed class OAuthLoginService(
         return $"{baseUri}/auth/callback";
     }
 
-    public async Task<StoredSession?> CompleteCallbackAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<StoredSession?> CompleteCallbackAsync(
+        string code,
+        CancellationToken cancellationToken = default
+    )
     {
         var tokenResponse = await authApiClient.ExchangeOAuthCodeAsync(
             code,
             ResolveRedirectUri(),
-            cancellationToken);
+            cancellationToken
+        );
 
         if (tokenResponse?.Session is null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
         {
@@ -64,23 +74,26 @@ public sealed class OAuthLoginService(
             RefreshToken = tokenResponse.RefreshToken,
             Email = tokenResponse.Session.Email,
             DisplayName = tokenResponse.Session.DisplayName,
-            ExpiresAtUtc = tokenResponse.Session.ExpiresAtUtc
+            ExpiresAtUtc = tokenResponse.Session.ExpiresAtUtc,
         };
     }
 
-    public string DemoAccountHint =>
-        demoAccountOptions.Value.Description;
+    public string DemoAccountHint => demoAccountOptions.Value.Description;
 
     private string ResolveAuthApiPublicBaseAddress()
     {
-        var configured = configuration["AuthApi:PublicBaseAddress"]
-            ?? configuration["AuthApi:BaseAddress"];
+        var configured =
+            configuration["AuthApi:PublicBaseAddress"] ?? configuration["AuthApi:BaseAddress"];
 
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            return configured.Replace("https+http://", "https://", StringComparison.Ordinal).TrimEnd('/');
+            return configured
+                .Replace("https+http://", "https://", StringComparison.Ordinal)
+                .TrimEnd('/');
         }
 
-        return "https://localhost:7204";
+        throw new InvalidOperationException(
+            "AuthApi:PublicBaseAddress or AuthApi:BaseAddress must be configured."
+        );
     }
 }

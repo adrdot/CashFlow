@@ -23,25 +23,27 @@ public sealed class LocalStackMessagingFixture : IAsyncLifetime
 
     public string QueueUrl { get; private set; } = string.Empty;
 
-    public IAmazonSimpleNotificationService CreateSnsClient()
-        => new AmazonSimpleNotificationServiceClient(
+    public IAmazonSimpleNotificationService CreateSnsClient() =>
+        new AmazonSimpleNotificationServiceClient(
             new BasicAWSCredentials("test", "test"),
             new AmazonSimpleNotificationServiceConfig
             {
                 ServiceURL = ServiceUrl,
                 AuthenticationRegion = Region,
-                UseHttp = true
-            });
+                UseHttp = true,
+            }
+        );
 
-    public IAmazonSQS CreateSqsClient()
-        => new AmazonSQSClient(
+    public IAmazonSQS CreateSqsClient() =>
+        new AmazonSQSClient(
             new BasicAWSCredentials("test", "test"),
             new AmazonSQSConfig
             {
                 ServiceURL = ServiceUrl,
                 AuthenticationRegion = Region,
-                UseHttp = true
-            });
+                UseHttp = true,
+            }
+        );
 
     public async Task InitializeAsync()
     {
@@ -84,12 +86,14 @@ public sealed class LocalStackMessagingFixture : IAsyncLifetime
 
         while (DateTime.UtcNow < deadline)
         {
-            var response = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
-            {
-                QueueUrl = QueueUrl,
-                MaxNumberOfMessages = 1,
-                WaitTimeSeconds = 2
-            });
+            var response = await sqs.ReceiveMessageAsync(
+                new ReceiveMessageRequest
+                {
+                    QueueUrl = QueueUrl,
+                    MaxNumberOfMessages = 1,
+                    WaitTimeSeconds = 2,
+                }
+            );
 
             var message = response.Messages.FirstOrDefault();
             if (message is null)
@@ -123,43 +127,45 @@ public sealed class LocalStackMessagingFixture : IAsyncLifetime
         var queueResponse = await sqs.CreateQueueAsync(QueueName);
         QueueUrl = queueResponse.QueueUrl;
 
-        var attributes = await sqs.GetQueueAttributesAsync(new GetQueueAttributesRequest
-        {
-            QueueUrl = QueueUrl,
-            AttributeNames = ["QueueArn"]
-        });
+        var attributes = await sqs.GetQueueAttributesAsync(
+            new GetQueueAttributesRequest { QueueUrl = QueueUrl, AttributeNames = ["QueueArn"] }
+        );
 
         var queueArn = attributes.Attributes["QueueArn"];
-        await sns.SubscribeAsync(new SubscribeRequest
-        {
-            TopicArn = TopicArn,
-            Protocol = "sqs",
-            Endpoint = queueArn
-        });
-
-        await sqs.SetQueueAttributesAsync(new SetQueueAttributesRequest
-        {
-            QueueUrl = QueueUrl,
-            Attributes = new Dictionary<string, string>
+        await sns.SubscribeAsync(
+            new SubscribeRequest
             {
-                ["Policy"] = $$"""
-                {
-                  "Version": "2012-10-17",
-                  "Statement": [
-                    {
-                      "Effect": "Allow",
-                      "Principal": { "Service": "sns.amazonaws.com" },
-                      "Action": "sqs:SendMessage",
-                      "Resource": "{{queueArn}}",
-                      "Condition": {
-                        "ArnEquals": { "aws:SourceArn": "{{TopicArn}}" }
-                      }
-                    }
-                  ]
-                }
-                """
+                TopicArn = TopicArn,
+                Protocol = "sqs",
+                Endpoint = queueArn,
             }
-        });
+        );
+
+        await sqs.SetQueueAttributesAsync(
+            new SetQueueAttributesRequest
+            {
+                QueueUrl = QueueUrl,
+                Attributes = new Dictionary<string, string>
+                {
+                    ["Policy"] = $$"""
+                    {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Principal": { "Service": "sns.amazonaws.com" },
+                          "Action": "sqs:SendMessage",
+                          "Resource": "{{queueArn}}",
+                          "Condition": {
+                            "ArnEquals": { "aws:SourceArn": "{{TopicArn}}" }
+                          }
+                        }
+                      ]
+                    }
+                    """,
+                },
+            }
+        );
     }
 
     private static string ExtractSnsPayload(string body)

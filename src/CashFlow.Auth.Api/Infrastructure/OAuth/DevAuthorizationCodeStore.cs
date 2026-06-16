@@ -4,12 +4,21 @@ namespace CashFlow.Auth.Infrastructure.OAuth;
 
 public sealed class DevAuthorizationCodeStore
 {
-    private readonly Dictionary<string, PendingAuthorizationCode> codes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PendingAuthorizationCode> codes = new(
+        StringComparer.Ordinal
+    );
     private readonly object gate = new();
 
-    public string Create(LoginResult loginResult, string redirectUri, string clientId, string state, TimeSpan ttl)
+    public string Create(
+        LoginResult loginResult,
+        string redirectUri,
+        string clientId,
+        string state,
+        TimeSpan ttl
+    )
     {
-        var code = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+        var code = Convert
+            .ToBase64String(Guid.NewGuid().ToByteArray())
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
@@ -19,7 +28,8 @@ public sealed class DevAuthorizationCodeStore
             redirectUri,
             clientId,
             state,
-            DateTimeOffset.UtcNow.Add(ttl));
+            DateTimeOffset.UtcNow.Add(ttl)
+        );
 
         lock (gate)
         {
@@ -30,7 +40,12 @@ public sealed class DevAuthorizationCodeStore
         return code;
     }
 
-    public bool TryRedeem(string code, string redirectUri, string clientId, out LoginResult? loginResult)
+    public bool TryRedeem(
+        string code,
+        string redirectUri,
+        string clientId,
+        out LoginResult? loginResult
+    )
     {
         loginResult = null;
 
@@ -45,9 +60,11 @@ public sealed class DevAuthorizationCodeStore
 
             codes.Remove(code);
 
-            if (pending.IsExpired
+            if (
+                pending.IsExpired
                 || !string.Equals(pending.RedirectUri, redirectUri, StringComparison.Ordinal)
-                || !string.Equals(pending.ClientId, clientId, StringComparison.Ordinal))
+                || !string.Equals(pending.ClientId, clientId, StringComparison.Ordinal)
+            )
             {
                 return false;
             }
@@ -75,7 +92,8 @@ public sealed class DevAuthorizationCodeStore
         string RedirectUri,
         string ClientId,
         string State,
-        DateTimeOffset ExpiresAtUtc)
+        DateTimeOffset ExpiresAtUtc
+    )
     {
         public bool IsExpired => ExpiresAtUtc <= DateTimeOffset.UtcNow;
     }

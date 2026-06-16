@@ -7,20 +7,22 @@ internal enum LoadTestAuthSource
 {
     DevJwt,
     Provided,
-    AutoLogin
+    AutoLogin,
 }
 
 internal sealed record ResolvedLoadTestAuth(
     string Token,
     LoadTestAuthSource Source,
-    string? AuthBaseUrl = null)
+    string? AuthBaseUrl = null
+)
 {
-    public string Describe() => Source switch
-    {
-        LoadTestAuthSource.Provided => "provided bearer token",
-        LoadTestAuthSource.AutoLogin => $"auto-login ({AuthBaseUrl})",
-        _ => "dev JWT (LoadTestJwtHelper)"
-    };
+    public string Describe() =>
+        Source switch
+        {
+            LoadTestAuthSource.Provided => "provided bearer token",
+            LoadTestAuthSource.AutoLogin => $"auto-login ({AuthBaseUrl})",
+            _ => "dev JWT (LoadTestJwtHelper)",
+        };
 }
 
 internal static class LoadTestTokenResolver
@@ -30,7 +32,8 @@ internal static class LoadTestTokenResolver
     public static async Task<ResolvedLoadTestAuth> ResolveAsync(
         string[] args,
         string? targetBaseUrl,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (CliArgParser.TryResolveExplicitToken(args, out var explicitToken))
         {
@@ -39,7 +42,10 @@ internal static class LoadTestTokenResolver
 
         if (string.IsNullOrWhiteSpace(targetBaseUrl))
         {
-            return new ResolvedLoadTestAuth(LoadTestJwtHelper.CreateToken(), LoadTestAuthSource.DevJwt);
+            return new ResolvedLoadTestAuth(
+                LoadTestJwtHelper.CreateToken(),
+                LoadTestAuthSource.DevJwt
+            );
         }
 
         var candidates = CliArgParser.BuildAuthCredentialCandidates(args);
@@ -49,42 +55,65 @@ internal static class LoadTestTokenResolver
         {
             try
             {
-                Console.WriteLine($"Acquiring bearer token from {credentials.AuthBaseUrl} as {credentials.Email} ...");
+                Console.WriteLine(
+                    $"Acquiring bearer token from {credentials.AuthBaseUrl} as {credentials.Email} ..."
+                );
                 var token = await LoginAsync(credentials, cancellationToken);
                 Console.WriteLine("Bearer token acquired successfully.");
-                return new ResolvedLoadTestAuth(token, LoadTestAuthSource.AutoLogin, credentials.AuthBaseUrl);
+                return new ResolvedLoadTestAuth(
+                    token,
+                    LoadTestAuthSource.AutoLogin,
+                    credentials.AuthBaseUrl
+                );
             }
-            catch (InvalidOperationException ex) when (IsInvalidCredentials(ex) && candidates.Count > 1)
+            catch (InvalidOperationException ex)
+                when (IsInvalidCredentials(ex) && candidates.Count > 1)
             {
                 lastError = ex;
                 Console.WriteLine($"Login failed for {credentials.Email}, trying next account...");
             }
         }
 
-        throw lastError ?? new InvalidOperationException("Auth login failed for all configured accounts.");
+        throw lastError
+            ?? new InvalidOperationException("Auth login failed for all configured accounts.");
     }
 
     private static bool IsInvalidCredentials(InvalidOperationException exception) =>
         exception.Message.Contains("Invalid credentials", StringComparison.OrdinalIgnoreCase)
-        || exception.Message.Contains("Invalid email or password", StringComparison.OrdinalIgnoreCase);
+        || exception.Message.Contains(
+            "Invalid email or password",
+            StringComparison.OrdinalIgnoreCase
+        );
 
-    private static async Task<string> LoginAsync(LoadTestAuthCredentials credentials, CancellationToken cancellationToken)
+    private static async Task<string> LoginAsync(
+        LoadTestAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         using var httpClient = CreateAuthHttpClient(credentials.AuthBaseUrl);
         var loginUri = new Uri(httpClient.BaseAddress!, "api/auth/login");
 
         var initialRequest = new LoginPayload(credentials.Email, credentials.Password);
-        using var challengeResponse = await httpClient.PostAsJsonAsync(loginUri, initialRequest, JsonOptions, cancellationToken);
+        using var challengeResponse = await httpClient.PostAsJsonAsync(
+            loginUri,
+            initialRequest,
+            JsonOptions,
+            cancellationToken
+        );
 
         if (!challengeResponse.IsSuccessStatusCode)
         {
             var errorBody = await challengeResponse.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException(
-                $"Auth login failed ({(int)challengeResponse.StatusCode}) for '{credentials.Email}' at {loginUri}: {errorBody}");
+                $"Auth login failed ({(int)challengeResponse.StatusCode}) for '{credentials.Email}' at {loginUri}: {errorBody}"
+            );
         }
 
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<LoginPayloadResponse>(JsonOptions, cancellationToken)
-            ?? throw new InvalidOperationException("Auth login returned an empty response.");
+        var challenge =
+            await challengeResponse.Content.ReadFromJsonAsync<LoginPayloadResponse>(
+                JsonOptions,
+                cancellationToken
+            ) ?? throw new InvalidOperationException("Auth login returned an empty response.");
 
         if (!string.IsNullOrWhiteSpace(challenge.Token))
         {
@@ -93,7 +122,9 @@ internal static class LoadTestTokenResolver
 
         if (!challenge.RequiresMfa)
         {
-            throw new InvalidOperationException("Auth login did not return a token or MFA challenge.");
+            throw new InvalidOperationException(
+                "Auth login did not return a token or MFA challenge."
+            );
         }
 
         if (string.IsNullOrWhiteSpace(challenge.ChallengeSession))
@@ -106,23 +137,34 @@ internal static class LoadTestTokenResolver
             credentials.Password,
             credentials.MfaCode,
             challenge.ChallengeSession,
-            challenge.ChallengeName);
+            challenge.ChallengeName
+        );
 
-        using var tokenResponse = await httpClient.PostAsJsonAsync(loginUri, mfaRequest, JsonOptions, cancellationToken);
+        using var tokenResponse = await httpClient.PostAsJsonAsync(
+            loginUri,
+            mfaRequest,
+            JsonOptions,
+            cancellationToken
+        );
         if (!tokenResponse.IsSuccessStatusCode)
         {
             var errorBody = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException(
-                $"Auth MFA login failed ({(int)tokenResponse.StatusCode}): {errorBody}");
+                $"Auth MFA login failed ({(int)tokenResponse.StatusCode}): {errorBody}"
+            );
         }
 
-        var result = await tokenResponse.Content.ReadFromJsonAsync<LoginPayloadResponse>(JsonOptions, cancellationToken)
-            ?? throw new InvalidOperationException("Auth MFA login returned an empty response.");
+        var result =
+            await tokenResponse.Content.ReadFromJsonAsync<LoginPayloadResponse>(
+                JsonOptions,
+                cancellationToken
+            ) ?? throw new InvalidOperationException("Auth MFA login returned an empty response.");
 
         if (string.IsNullOrWhiteSpace(result.Token))
         {
             throw new InvalidOperationException(
-                result.ErrorMessage ?? "Auth MFA login did not return a token.");
+                result.ErrorMessage ?? "Auth MFA login did not return a token."
+            );
         }
 
         return CliArgParser.NormalizeBearerToken(result.Token);
@@ -133,13 +175,13 @@ internal static class LoadTestTokenResolver
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
         };
 
         return new HttpClient(handler)
         {
             BaseAddress = new Uri(NormalizeBaseUrl(authBaseUrl)),
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(30),
         };
     }
 
@@ -154,7 +196,8 @@ internal static class LoadTestTokenResolver
         string Password,
         string? MfaCode = null,
         string? ChallengeSession = null,
-        string? ChallengeName = null);
+        string? ChallengeName = null
+    );
 
     private sealed record LoginPayloadResponse
     {
@@ -176,4 +219,5 @@ internal sealed record LoadTestAuthCredentials(
     string AuthBaseUrl,
     string Email,
     string Password,
-    string MfaCode);
+    string MfaCode
+);

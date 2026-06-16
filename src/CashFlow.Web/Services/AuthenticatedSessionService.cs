@@ -6,7 +6,8 @@ namespace CashFlow.Web.Services;
 public sealed class AuthenticatedSessionService(
     SessionStore sessionStore,
     AuthApiClient authApiClient,
-    IOptions<AuthSessionOptions> sessionOptions)
+    IOptions<AuthSessionOptions> sessionOptions
+)
 {
     private TimeSpan RefreshLeadTime =>
         TimeSpan.FromMinutes(Math.Max(1, sessionOptions.Value.RefreshLeadTimeMinutes));
@@ -75,7 +76,7 @@ public sealed class AuthenticatedSessionService(
             RefreshToken = result.RefreshToken ?? storedSession.RefreshToken,
             Email = result.Session.Email,
             DisplayName = result.Session.DisplayName,
-            ExpiresAtUtc = result.Session.ExpiresAtUtc
+            ExpiresAtUtc = result.Session.ExpiresAtUtc,
         };
 
         await sessionStore.SaveAsync(refreshedSession);

@@ -1,10 +1,48 @@
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Application.Contracts;
 using CashFlow.Auth.Infrastructure.Configuration;
 using CashFlow.Auth.Infrastructure.Identity;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
 using CashFlow.Auth.Infrastructure.Security;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.UnitTests.Application;
+
+internal static class TestLocalAuthOptions
+{
+    public static IOptions<LocalAuthOptions> Create() =>
+        Options.Create(
+            new LocalAuthOptions
+            {
+                MfaCode = "123456",
+                MfaChallengeTtlMinutes = 5,
+                SeedAdminEmail = "admin@cashflow.local",
+                SeedAdminPassword = "Pass@word1",
+                SeedAdminUserId = "b2f02e39-71d0-4d73-96df-f8626776f2a4",
+                SeedAdminDisplayName = "Cash Flow Admin",
+                DefaultUserPassword = "Pass@word1",
+            }
+        );
+}
+
+internal static class TestJwtOptions
+{
+    public const string SigningKey = "dev-only-signing-key-change-me-1234567890";
+
+    public static IOptions<JwtOptions> Create() =>
+        Options.Create(
+            new JwtOptions
+            {
+                Issuer = "CashFlow.Auth.Api",
+                Audience = "CashFlow.Web",
+                SigningKey = SigningKey,
+                ExpirationMinutes = 60,
+                RefreshTokenExpirationDays = 7,
+                ClockSkewSeconds = 30,
+            }
+        );
+}
 
 public sealed class CognitoIdentityProviderTests
 {
@@ -12,12 +50,16 @@ public sealed class CognitoIdentityProviderTests
     private readonly InMemoryUserAccountStore userAccountStore;
     private readonly JwtTokenService tokenService;
     private readonly LocalMfaChallengeStore localMfaChallengeStore = new();
-    private readonly ICognitoIdentityGateway cognitoIdentityGateway = new NoOpCognitoIdentityGateway();
+    private readonly ICognitoIdentityGateway cognitoIdentityGateway =
+        new NoOpCognitoIdentityGateway();
 
     public CognitoIdentityProviderTests()
     {
-        userAccountStore = new InMemoryUserAccountStore(passwordVerifier);
-        tokenService = new JwtTokenService(Options.Create(new JwtOptions()));
+        userAccountStore = new InMemoryUserAccountStore(
+            passwordVerifier,
+            TestLocalAuthOptions.Create()
+        );
+        tokenService = new JwtTokenService(TestJwtOptions.Create());
     }
 
     [Fact]
@@ -25,11 +67,9 @@ public sealed class CognitoIdentityProviderTests
     {
         var provider = CreateProvider(requireMfa: true);
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.local", Password = "Pass@word1" }
+        );
 
         Assert.True(result.RequiresMfa);
         Assert.False(result.Succeeded);
@@ -41,11 +81,9 @@ public sealed class CognitoIdentityProviderTests
     {
         var provider = CreateProvider(requireMfa: false);
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.local", Password = "Pass@word1" }
+        );
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Token);
@@ -59,11 +97,9 @@ public sealed class CognitoIdentityProviderTests
     {
         var provider = CreateProvider(requireMfa: false);
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "wrong-password"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.local", Password = "wrong-password" }
+        );
 
         Assert.False(result.Succeeded);
         Assert.Null(result.Token);
@@ -73,16 +109,13 @@ public sealed class CognitoIdentityProviderTests
     [Fact]
     public async Task AuthenticateAsync_ReturnsFailure_WhenCognitoRejectsCredentials()
     {
-        var provider = CreateCognitoProvider(new FakeCognitoIdentityGateway(new CognitoAuthResult
-        {
-            IsInvalidCredentials = true
-        }));
+        var provider = CreateCognitoProvider(
+            new FakeCognitoIdentityGateway(new CognitoAuthResult { IsInvalidCredentials = true })
+        );
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.docker",
-            Password = "wrong-password"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.docker", Password = "wrong-password" }
+        );
 
         Assert.False(result.Succeeded);
         Assert.Equal("Invalid email or password.", result.ErrorMessage);
@@ -93,11 +126,9 @@ public sealed class CognitoIdentityProviderTests
     {
         var provider = CreateProvider(requireMfa: false);
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.local", Password = "Pass@word1" }
+        );
 
         Assert.True(result.Succeeded);
         Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
@@ -107,11 +138,9 @@ public sealed class CognitoIdentityProviderTests
     public async Task RefreshSessionAsync_ReturnsNewTokens_WhenRefreshTokenIsValid()
     {
         var provider = CreateProvider(requireMfa: false);
-        var loginResult = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var loginResult = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.local", Password = "Pass@word1" }
+        );
 
         var refreshResult = await provider.RefreshSessionAsync(loginResult.RefreshToken!);
         Assert.True(refreshResult.Succeeded);
@@ -123,10 +152,9 @@ public sealed class CognitoIdentityProviderTests
     [Fact]
     public async Task RefreshSessionAsync_ReturnsFailure_WhenCognitoRefreshIsRejected()
     {
-        var provider = CreateCognitoProvider(new FakeCognitoIdentityGateway(new CognitoAuthResult
-        {
-            IsInvalidRefreshToken = true
-        }));
+        var provider = CreateCognitoProvider(
+            new FakeCognitoIdentityGateway(new CognitoAuthResult { IsInvalidRefreshToken = true })
+        );
 
         var result = await provider.RefreshSessionAsync("stale-refresh-token");
         Assert.False(result.Succeeded);
@@ -137,12 +165,20 @@ public sealed class CognitoIdentityProviderTests
     public async Task RefreshSessionAsync_ReturnsNewAccessToken_WhenCognitoRefreshSucceeds()
     {
         var accessToken = CreateJwt("access-token", DateTime.UtcNow.AddMinutes(30));
-        var provider = CreateCognitoProvider(new FakeCognitoIdentityGateway(new CognitoAuthResult
-        {
-            AccessToken = accessToken,
-            IdToken = CreateJwt("id-token", DateTime.UtcNow.AddMinutes(30), email: "admin@cashflow.docker"),
-            RefreshToken = "rotated-refresh-token"
-        }));
+        var provider = CreateCognitoProvider(
+            new FakeCognitoIdentityGateway(
+                new CognitoAuthResult
+                {
+                    AccessToken = accessToken,
+                    IdToken = CreateJwt(
+                        "id-token",
+                        DateTime.UtcNow.AddMinutes(30),
+                        email: "admin@cashflow.docker"
+                    ),
+                    RefreshToken = "rotated-refresh-token",
+                }
+            )
+        );
 
         var result = await provider.RefreshSessionAsync("existing-refresh-token");
         Assert.True(result.Succeeded);
@@ -158,32 +194,43 @@ public sealed class CognitoIdentityProviderTests
             passwordVerifier,
             tokenService,
             localMfaChallengeStore,
-            Options.Create(new CognitoOptions
-            {
-                Enabled = false,
-                AuthenticationSource = "InMemoryFallback",
-                RequireMfa = requireMfa
-            }),
-            Options.Create(new LocalAuthOptions()));
+            Options.Create(
+                new CognitoOptions
+                {
+                    Enabled = false,
+                    AuthenticationSource = "InMemoryFallback",
+                    RequireMfa = requireMfa,
+                }
+            ),
+            TestLocalAuthOptions.Create()
+        );
     }
 
     [Fact]
     public async Task AuthenticateAsync_ReturnsLocalMfaChallenge_WhenCognitoLocalReturnsTokensDirectly()
     {
         var accessToken = CreateJwt("access-token", DateTime.UtcNow.AddMinutes(30));
-        var gateway = new FakeCognitoIdentityGateway(new CognitoAuthResult
-        {
-            AccessToken = accessToken,
-            IdToken = CreateJwt("id-token", DateTime.UtcNow.AddMinutes(30), email: "admin@cashflow.docker"),
-            RefreshToken = "refresh-token"
-        });
-        var provider = CreateCognitoProvider(gateway, serviceUrl: "http://localhost:9229", requireMfa: true);
+        var gateway = new FakeCognitoIdentityGateway(
+            new CognitoAuthResult
+            {
+                AccessToken = accessToken,
+                IdToken = CreateJwt(
+                    "id-token",
+                    DateTime.UtcNow.AddMinutes(30),
+                    email: "admin@cashflow.docker"
+                ),
+                RefreshToken = "refresh-token",
+            }
+        );
+        var provider = CreateCognitoProvider(
+            gateway,
+            serviceUrl: "http://localhost:9229",
+            requireMfa: true
+        );
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.docker",
-            Password = "Pass@word1"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.docker", Password = "Pass@word1" }
+        );
 
         Assert.True(result.RequiresMfa);
         Assert.Equal("LOCAL_MFA", result.ChallengeName);
@@ -194,28 +241,38 @@ public sealed class CognitoIdentityProviderTests
     public async Task AuthenticateAsync_ReturnsCognitoTokens_WhenLocalMfaCodeIsValid()
     {
         var accessToken = CreateJwt("access-token", DateTime.UtcNow.AddMinutes(30));
-        var gateway = new FakeCognitoIdentityGateway(new CognitoAuthResult
-        {
-            AccessToken = accessToken,
-            IdToken = CreateJwt("id-token", DateTime.UtcNow.AddMinutes(30), email: "admin@cashflow.docker"),
-            RefreshToken = "refresh-token"
-        });
-        var provider = CreateCognitoProvider(gateway, serviceUrl: "http://localhost:9229", requireMfa: true);
+        var gateway = new FakeCognitoIdentityGateway(
+            new CognitoAuthResult
+            {
+                AccessToken = accessToken,
+                IdToken = CreateJwt(
+                    "id-token",
+                    DateTime.UtcNow.AddMinutes(30),
+                    email: "admin@cashflow.docker"
+                ),
+                RefreshToken = "refresh-token",
+            }
+        );
+        var provider = CreateCognitoProvider(
+            gateway,
+            serviceUrl: "http://localhost:9229",
+            requireMfa: true
+        );
 
-        var challenge = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.docker",
-            Password = "Pass@word1"
-        });
+        var challenge = await provider.AuthenticateAsync(
+            new LoginRequest { Email = "admin@cashflow.docker", Password = "Pass@word1" }
+        );
 
-        var result = await provider.AuthenticateAsync(new LoginRequest
-        {
-            Email = "admin@cashflow.docker",
-            Password = "Pass@word1",
-            ChallengeSession = challenge.ChallengeSession,
-            ChallengeName = challenge.ChallengeName,
-            MfaCode = "123456"
-        });
+        var result = await provider.AuthenticateAsync(
+            new LoginRequest
+            {
+                Email = "admin@cashflow.docker",
+                Password = "Pass@word1",
+                ChallengeSession = challenge.ChallengeSession,
+                ChallengeName = challenge.ChallengeName,
+                MfaCode = "123456",
+            }
+        );
 
         Assert.True(result.Succeeded);
         Assert.Equal(accessToken, result.Token);
@@ -248,7 +305,8 @@ public sealed class CognitoIdentityProviderTests
     private CognitoIdentityProvider CreateCognitoProvider(
         ICognitoIdentityGateway gateway,
         string? serviceUrl = null,
-        bool requireMfa = false)
+        bool requireMfa = false
+    )
     {
         return new CognitoIdentityProvider(
             gateway,
@@ -256,34 +314,43 @@ public sealed class CognitoIdentityProviderTests
             passwordVerifier,
             tokenService,
             localMfaChallengeStore,
-            Options.Create(new CognitoOptions
-            {
-                Enabled = true,
-                ClientId = "test-client",
-                UserPoolId = "local_test",
-                Region = "us-east-1",
-                ServiceUrl = serviceUrl,
-                RequireMfa = requireMfa,
-                AuthenticationSource = serviceUrl is null ? "AwsCognito" : "CognitoLocal"
-            }),
-            Options.Create(new LocalAuthOptions()));
+            Options.Create(
+                new CognitoOptions
+                {
+                    Enabled = true,
+                    ClientId = "test-client",
+                    UserPoolId = "local_test",
+                    Region = "us-east-1",
+                    ServiceUrl = serviceUrl,
+                    RequireMfa = requireMfa,
+                    AuthenticationSource = serviceUrl is null ? "AwsCognito" : "CognitoLocal",
+                }
+            ),
+            TestLocalAuthOptions.Create()
+        );
     }
 
     private static string CreateJwt(string subject, DateTime expiresAtUtc, string? email = null)
     {
         var claims = new List<System.Security.Claims.Claim>
         {
-            new(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub, subject)
+            new(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub, subject),
         };
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            claims.Add(new System.Security.Claims.Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email, email));
+            claims.Add(
+                new System.Security.Claims.Claim(
+                    System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email,
+                    email
+                )
+            );
         }
 
         var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
             claims: claims,
-            expires: expiresAtUtc);
+            expires: expiresAtUtc
+        );
         return new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().WriteToken(token);
     }
 
@@ -293,19 +360,37 @@ public sealed class CognitoIdentityProviderTests
 
         public string? GlobalSignOutAccessToken { get; private set; }
 
-        public Task<CognitoAuthResult> AuthenticateAsync(string clientId, string username, string password, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CognitoAuthResult());
+        public Task<CognitoAuthResult> AuthenticateAsync(
+            string clientId,
+            string username,
+            string password,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(new CognitoAuthResult());
 
-        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(string clientId, string challengeSession, string username, string mfaCode, string challengeName, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CognitoAuthResult());
+        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(
+            string clientId,
+            string challengeSession,
+            string username,
+            string mfaCode,
+            string challengeName,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(new CognitoAuthResult());
 
-        public Task<CognitoAuthResult> RefreshTokenAsync(string clientId, string refreshToken, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CognitoAuthResult());
+        public Task<CognitoAuthResult> RefreshTokenAsync(
+            string clientId,
+            string refreshToken,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(new CognitoAuthResult());
 
-        public Task<CognitoUserProfile?> GetUserAsync(string accessToken, CancellationToken cancellationToken = default)
-            => Task.FromResult<CognitoUserProfile?>(null);
+        public Task<CognitoUserProfile?> GetUserAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult<CognitoUserProfile?>(null);
 
-        public Task GlobalSignOutAsync(string accessToken, CancellationToken cancellationToken = default)
+        public Task GlobalSignOutAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        )
         {
             GlobalSignOutCalled = true;
             GlobalSignOutAccessToken = accessToken;
@@ -313,39 +398,74 @@ public sealed class CognitoIdentityProviderTests
         }
     }
 
-    private sealed class FakeCognitoIdentityGateway(CognitoAuthResult result) : ICognitoIdentityGateway
+    private sealed class FakeCognitoIdentityGateway(CognitoAuthResult result)
+        : ICognitoIdentityGateway
     {
-        public Task<CognitoAuthResult> AuthenticateAsync(string clientId, string username, string password, CancellationToken cancellationToken = default)
-            => Task.FromResult(result);
+        public Task<CognitoAuthResult> AuthenticateAsync(
+            string clientId,
+            string username,
+            string password,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(result);
 
-        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(string clientId, string challengeSession, string username, string mfaCode, string challengeName, CancellationToken cancellationToken = default)
-            => Task.FromResult(result);
+        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(
+            string clientId,
+            string challengeSession,
+            string username,
+            string mfaCode,
+            string challengeName,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(result);
 
-        public Task<CognitoAuthResult> RefreshTokenAsync(string clientId, string refreshToken, CancellationToken cancellationToken = default)
-            => Task.FromResult(result);
+        public Task<CognitoAuthResult> RefreshTokenAsync(
+            string clientId,
+            string refreshToken,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(result);
 
-        public Task<CognitoUserProfile?> GetUserAsync(string accessToken, CancellationToken cancellationToken = default)
-            => Task.FromResult<CognitoUserProfile?>(null);
+        public Task<CognitoUserProfile?> GetUserAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult<CognitoUserProfile?>(null);
 
-        public Task GlobalSignOutAsync(string accessToken, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task GlobalSignOutAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
     }
 
     private sealed class NoOpCognitoIdentityGateway : ICognitoIdentityGateway
     {
-        public Task<CognitoAuthResult> AuthenticateAsync(string clientId, string username, string password, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Cognito is disabled in this test.");
+        public Task<CognitoAuthResult> AuthenticateAsync(
+            string clientId,
+            string username,
+            string password,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException("Cognito is disabled in this test.");
 
-        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(string clientId, string challengeSession, string username, string mfaCode, string challengeName, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Cognito is disabled in this test.");
+        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(
+            string clientId,
+            string challengeSession,
+            string username,
+            string mfaCode,
+            string challengeName,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException("Cognito is disabled in this test.");
 
-        public Task<CognitoAuthResult> RefreshTokenAsync(string clientId, string refreshToken, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Cognito is disabled in this test.");
+        public Task<CognitoAuthResult> RefreshTokenAsync(
+            string clientId,
+            string refreshToken,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException("Cognito is disabled in this test.");
 
-        public Task<CognitoUserProfile?> GetUserAsync(string accessToken, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Cognito is disabled in this test.");
+        public Task<CognitoUserProfile?> GetUserAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException("Cognito is disabled in this test.");
 
-        public Task GlobalSignOutAsync(string accessToken, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task GlobalSignOutAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
     }
 }

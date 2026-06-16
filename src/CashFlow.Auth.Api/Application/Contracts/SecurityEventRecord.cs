@@ -10,5 +10,6 @@ public sealed class SecurityEventRecord
 
     public DateTimeOffset OccurredAtUtc { get; init; } = DateTimeOffset.UtcNow;
 
-    public IReadOnlyDictionary<string, string> Dimensions { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> Dimensions { get; init; } =
+        new Dictionary<string, string>();
 }

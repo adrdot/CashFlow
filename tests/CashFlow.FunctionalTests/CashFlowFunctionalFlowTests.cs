@@ -26,7 +26,9 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
     {
         FunctionalTestEnvironment.IsolateFromLocalStack();
 
-        transactionsFactory = new TransactionsWebApplicationFactory(TransactionsTestMode.EventStorePersistence);
+        transactionsFactory = new TransactionsWebApplicationFactory(
+            TransactionsTestMode.EventStorePersistence
+        );
         reportingFactory = new FunctionalReportingWebApplicationFactory();
         await reportingFactory.EnsureDatabaseCreatedAsync();
     }
@@ -59,13 +61,15 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
             "Credit",
             CreditAmount,
             "Functional flow credit",
-            reportDate);
+            reportDate
+        );
         var debit = await PostTransactionAsync(
             transactionsClient,
             "Debit",
             DebitAmount,
             "Functional flow debit",
-            reportDate);
+            reportDate
+        );
 
         await ProjectTransactionAsync(credit);
         await ProjectTransactionAsync(debit);
@@ -73,7 +77,9 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
         using var reportingClient = reportingFactory.CreateClient();
         TestJwtTokenHelper.AuthorizeClient(reportingClient, UserId);
 
-        var reportResponse = await reportingClient.GetAsync($"/api/reports/daily?date={reportDate:yyyy-MM-dd}");
+        var reportResponse = await reportingClient.GetAsync(
+            $"/api/reports/daily?date={reportDate:yyyy-MM-dd}"
+        );
         Assert.Equal(HttpStatusCode.OK, reportResponse.StatusCode);
 
         var report = await reportResponse.Content.ReadFromJsonAsync<DailyReportResult>();
@@ -85,14 +91,18 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
         Assert.Equal(2, report.TransactionVolume);
         Assert.True(report.HasData);
 
-        var csvResponse = await reportingClient.GetAsync($"/api/reports/daily/export/csv?date={reportDate:yyyy-MM-dd}");
+        var csvResponse = await reportingClient.GetAsync(
+            $"/api/reports/daily/export/csv?date={reportDate:yyyy-MM-dd}"
+        );
         Assert.Equal(HttpStatusCode.OK, csvResponse.StatusCode);
         Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
 
         var csvContent = await csvResponse.Content.ReadAsByteArrayAsync();
         ExportAssertions.AssertCsvMatchesReport(report, csvContent);
 
-        var pdfResponse = await reportingClient.GetAsync($"/api/reports/daily/export/pdf?date={reportDate:yyyy-MM-dd}");
+        var pdfResponse = await reportingClient.GetAsync(
+            $"/api/reports/daily/export/pdf?date={reportDate:yyyy-MM-dd}"
+        );
         Assert.Equal(HttpStatusCode.OK, pdfResponse.StatusCode);
         Assert.Equal("application/pdf", pdfResponse.Content.Headers.ContentType?.MediaType);
 
@@ -105,15 +115,19 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
         string type,
         decimal amount,
         string description,
-        DateOnly transactionDate)
+        DateOnly transactionDate
+    )
     {
-        var response = await client.PostAsJsonAsync("/api/transactions", new CreateTransactionRequest
-        {
-            Type = type,
-            Amount = amount,
-            Description = description,
-            TransactionDate = transactionDate
-        });
+        var response = await client.PostAsJsonAsync(
+            "/api/transactions",
+            new CreateTransactionRequest
+            {
+                Type = type,
+                Amount = amount,
+                Description = description,
+                TransactionDate = transactionDate,
+            }
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -140,6 +154,7 @@ public sealed class CashFlowFunctionalFlowTests : IAsyncLifetime
             transaction.Description,
             transaction.TransactionDate,
             transaction.CreatedAtUtc,
-            CancellationToken.None);
+            CancellationToken.None
+        );
     }
 }

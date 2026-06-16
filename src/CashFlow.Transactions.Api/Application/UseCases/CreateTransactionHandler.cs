@@ -1,17 +1,20 @@
 using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 using CashFlow.Transactions.Domain.Entities;
 using CashFlow.Transactions.Domain.ValueObjects;
 
 namespace CashFlow.Transactions.Application.UseCases;
 
-public sealed class CreateTransactionHandler(ITransactionRepository repository) : ITransactionService
+public sealed class CreateTransactionHandler(ITransactionRepository repository)
+    : ITransactionService
 {
     public async Task<CreateTransactionResult> CreateAsync(
         CreateTransactionRequest request,
         string userId,
         string? idempotencyKey = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrWhiteSpace(userId))
         {
@@ -31,7 +34,9 @@ public sealed class CreateTransactionHandler(ITransactionRepository repository) 
         var description = request.Description.Trim();
         if (description.Length < 3)
         {
-            return CreateTransactionResult.Failure("Description must contain at least 3 characters.");
+            return CreateTransactionResult.Failure(
+                "Description must contain at least 3 characters."
+            );
         }
 
         if (request.TransactionDate is null)
@@ -46,13 +51,20 @@ public sealed class CreateTransactionHandler(ITransactionRepository repository) 
             Amount = decimal.Round(request.Amount, 2, MidpointRounding.AwayFromZero),
             Description = description,
             OccurredOn = request.TransactionDate.Value,
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
-        var persistenceOutcome = await repository.SaveAsync(transaction, userId, idempotencyKey, cancellationToken);
+        var persistenceOutcome = await repository.SaveAsync(
+            transaction,
+            userId,
+            idempotencyKey,
+            cancellationToken
+        );
         if (!persistenceOutcome.IsPersisted)
         {
-            return CreateTransactionResult.Failure(persistenceOutcome.FailureReason ?? "Transaction could not be recorded.");
+            return CreateTransactionResult.Failure(
+                persistenceOutcome.FailureReason ?? "Transaction could not be recorded."
+            );
         }
 
         if (persistenceOutcome.IsReplay && persistenceOutcome.ReplayedSnapshot is not null)
@@ -60,24 +72,27 @@ public sealed class CreateTransactionHandler(ITransactionRepository repository) 
             return CreateTransactionResult.Success(ToReceipt(persistenceOutcome.ReplayedSnapshot));
         }
 
-        return CreateTransactionResult.Success(new TransactionReceipt
-        {
-            Id = transaction.Id,
-            Type = transaction.Type.ToString(),
-            Amount = transaction.Amount,
-            Description = transaction.Description,
-            TransactionDate = transaction.OccurredOn,
-            CreatedAtUtc = transaction.CreatedAtUtc
-        });
+        return CreateTransactionResult.Success(
+            new TransactionReceipt
+            {
+                Id = transaction.Id,
+                Type = transaction.Type.ToString(),
+                Amount = transaction.Amount,
+                Description = transaction.Description,
+                TransactionDate = transaction.OccurredOn,
+                CreatedAtUtc = transaction.CreatedAtUtc,
+            }
+        );
     }
 
-    private static TransactionReceipt ToReceipt(PersistedTransactionSnapshot snapshot) => new()
-    {
-        Id = snapshot.TransactionId,
-        Type = snapshot.Type,
-        Amount = snapshot.Amount,
-        Description = snapshot.Description,
-        TransactionDate = snapshot.TransactionDate,
-        CreatedAtUtc = snapshot.CreatedAtUtc
-    };
+    private static TransactionReceipt ToReceipt(PersistedTransactionSnapshot snapshot) =>
+        new()
+        {
+            Id = snapshot.TransactionId,
+            Type = snapshot.Type,
+            Amount = snapshot.Amount,
+            Description = snapshot.Description,
+            TransactionDate = snapshot.TransactionDate,
+            CreatedAtUtc = snapshot.CreatedAtUtc,
+        };
 }

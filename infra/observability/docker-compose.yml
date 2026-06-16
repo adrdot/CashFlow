@@ -13,6 +13,25 @@ services:
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
 
+  yace:
+    image: quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:v0.65.0
+    container_name: cashflow-yace
+    command:
+      - --config.file=/config/config.yml
+      - --listen-address=0.0.0.0:5000
+    ports:
+      - "127.0.0.1:5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://host.docker.internal:4566}
+    volumes:
+      - ./yace/config.yml:/config/config.yml:ro
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: cashflow-prometheus
@@ -21,7 +40,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${PROMETHEUS_CONFIG:-./generated/prometheus.yml}:/etc/prometheus/prometheus.yml:ro
+      - ./generated/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts:/etc/prometheus/alerts:ro
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -41,3 +60,4 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - yace

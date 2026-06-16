@@ -3,7 +3,7 @@ namespace CashFlow.Reporting.Domain.Entities;
 public enum ReportTransactionType
 {
     Debit = 1,
-    Credit = 2
+    Credit = 2,
 }
 
 public sealed record ReportingTransaction

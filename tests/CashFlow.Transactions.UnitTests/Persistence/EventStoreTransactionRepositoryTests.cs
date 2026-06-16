@@ -1,13 +1,14 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Domain.Entities;
 using CashFlow.Transactions.Domain.ValueObjects;
 using CashFlow.Transactions.Infrastructure.EventStore;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
 using CashFlow.Transactions.Infrastructure.Observability;
 using CashFlow.Transactions.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Collections.Concurrent;
-using System.Diagnostics.Metrics;
 
 namespace CashFlow.Transactions.UnitTests.Persistence;
 
@@ -26,7 +27,7 @@ public sealed class EventStoreTransactionRepositoryTests
             Amount = 10m,
             Description = "existing",
             TransactionDate = new DateOnly(2026, 6, 14),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
         store.Seed("user@cashflow.local", eventId, existing);
 
@@ -38,7 +39,7 @@ public sealed class EventStoreTransactionRepositoryTests
             Amount = 999m,
             Description = "should replay",
             OccurredOn = new DateOnly(2026, 1, 1),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         var outcome = await repository.SaveAsync(transaction, "user@cashflow.local", "idem-001");
@@ -56,20 +57,28 @@ public sealed class EventStoreTransactionRepositoryTests
         using var provider = services.BuildServiceProvider();
         var metrics = new TransactionMetrics(
             provider.GetRequiredService<IMeterFactory>(),
-            provider.GetRequiredService<RelaySubscriptionStats>());
+            provider.GetRequiredService<RelaySubscriptionStats>()
+        );
         return new EventStoreTransactionRepository(
             store,
             store,
             metrics,
-            NullLogger<EventStoreTransactionRepository>.Instance);
+            NullLogger<EventStoreTransactionRepository>.Instance
+        );
     }
 
-    private sealed class InMemoryEventStore : IEventStoreTransactionWriter, IEventStoreTransactionReader
+    private sealed class InMemoryEventStore
+        : IEventStoreTransactionWriter,
+            IEventStoreTransactionReader
     {
-        private readonly ConcurrentDictionary<(string UserId, Guid EventId), TransactionRecordedEvent> events = new();
+        private readonly ConcurrentDictionary<
+            (string UserId, Guid EventId),
+            TransactionRecordedEvent
+        > events = new();
         private readonly List<(Guid EventId, TransactionRecordedEvent Event)> appendedEvents = [];
 
-        public IReadOnlyList<(Guid EventId, TransactionRecordedEvent Event)> AppendedEvents => appendedEvents;
+        public IReadOnlyList<(Guid EventId, TransactionRecordedEvent Event)> AppendedEvents =>
+            appendedEvents;
 
         public void Seed(string userId, Guid eventId, TransactionRecordedEvent recordedEvent) =>
             events[(userId, eventId)] = recordedEvent;
@@ -78,7 +87,8 @@ public sealed class EventStoreTransactionRepositoryTests
             TransactionRecordedEvent transactionEvent,
             Guid eventId,
             string? idempotencyKey = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             if (!events.ContainsKey((transactionEvent.UserId, eventId)))
             {
@@ -92,7 +102,8 @@ public sealed class EventStoreTransactionRepositoryTests
         public Task<TransactionRecordedEvent?> TryGetByEventIdAsync(
             string userId,
             Guid eventId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             events.TryGetValue((userId, eventId), out var found);
             return Task.FromResult(found);

@@ -20,6 +20,7 @@ Governança: [ADR 000](adr/000-governanca-decisoes-arquiteturais.md) · [templat
 | [transactions-slo.md](transactions-slo.md) | Caminho de escrita (Transactions API) |
 | [reporting-slo.md](reporting-slo.md) | Caminho de leitura (consolidado diário) |
 | [messaging-pipeline-observability.md](messaging-pipeline-observability.md) | Observabilidade do pipeline EventStore → SQS |
+| [observability-prometheus-canonical.md](observability-prometheus-canonical.md) | Prometheus como fonte canônica de alertas (vs CloudWatch placeholder) |
 
 ## Diagramas C4
 

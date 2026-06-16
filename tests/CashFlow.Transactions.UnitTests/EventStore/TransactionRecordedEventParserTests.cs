@@ -15,7 +15,7 @@ public sealed class TransactionRecordedEventParserTests
         Amount = 42.50m,
         Description = "Test",
         TransactionDate = new DateOnly(2026, 6, 14),
-        CreatedAtUtc = DateTimeOffset.Parse("2026-06-14T12:00:00Z")
+        CreatedAtUtc = DateTimeOffset.Parse("2026-06-14T12:00:00Z"),
     };
 
     [Fact]
@@ -24,7 +24,11 @@ public sealed class TransactionRecordedEventParserTests
         var json = JsonSerializer.Serialize(Sample);
         var data = Encoding.UTF8.GetBytes(json);
 
-        var parsed = TransactionRecordedEventParser.TryParse(data, "TransactionRecorded", out var transactionEvent);
+        var parsed = TransactionRecordedEventParser.TryParse(
+            data,
+            "TransactionRecorded",
+            out var transactionEvent
+        );
 
         Assert.True(parsed);
         Assert.NotNull(transactionEvent);
@@ -40,7 +44,11 @@ public sealed class TransactionRecordedEventParserTests
     {
         var data = Encoding.UTF8.GetBytes("{}");
 
-        var parsed = TransactionRecordedEventParser.TryParse(data, eventType, out var transactionEvent);
+        var parsed = TransactionRecordedEventParser.TryParse(
+            data,
+            eventType,
+            out var transactionEvent
+        );
 
         Assert.False(parsed);
         Assert.Null(transactionEvent);
@@ -51,7 +59,11 @@ public sealed class TransactionRecordedEventParserTests
     {
         var data = Encoding.UTF8.GetBytes("{ not-json");
 
-        var parsed = TransactionRecordedEventParser.TryParse(data, "TransactionRecorded", out var transactionEvent);
+        var parsed = TransactionRecordedEventParser.TryParse(
+            data,
+            "TransactionRecorded",
+            out var transactionEvent
+        );
 
         Assert.False(parsed);
         Assert.Null(transactionEvent);

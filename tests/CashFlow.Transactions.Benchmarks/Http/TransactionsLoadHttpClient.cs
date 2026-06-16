@@ -19,13 +19,13 @@ internal sealed class TransactionsLoadHttpClient : IAsyncDisposable
             var handler = new HttpClientHandler
             {
                 ServerCertificateCustomValidationCallback =
-                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
             };
 
             var client = new HttpClient(handler)
             {
                 BaseAddress = new Uri(NormalizeBaseUrl(baseUrl)),
-                Timeout = TimeSpan.FromSeconds(30)
+                Timeout = TimeSpan.FromSeconds(30),
             };
 
             ApplyAuthorization(client, bearerToken);

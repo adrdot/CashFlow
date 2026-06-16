@@ -1,5 +1,3 @@
-using CashFlow.Transactions.Api.Observability;
-
 namespace CashFlow.Transactions.Benchmarks.Http;
 
 internal sealed record LoadTestOptions(
@@ -8,9 +6,13 @@ internal sealed record LoadTestOptions(
     LoadTestAuthSource AuthSource,
     string? AuthBaseUrl,
     int Rate,
-    int DurationSeconds)
+    int DurationSeconds
+)
 {
-    public static async Task<LoadTestOptions> ParseAsync(string[] args, CancellationToken cancellationToken = default)
+    public static async Task<LoadTestOptions> ParseAsync(
+        string[] args,
+        CancellationToken cancellationToken = default
+    )
     {
         var baseUrl = CliArgParser.ParseString(args, "--url");
         var auth = await LoadTestTokenResolver.ResolveAsync(args, baseUrl, cancellationToken);
@@ -20,9 +22,19 @@ internal sealed record LoadTestOptions(
             BearerToken: auth.Token,
             AuthSource: auth.Source,
             AuthBaseUrl: auth.AuthBaseUrl,
-            Rate: CliArgParser.ParseInt(args, "--rate", TransactionLoadTestDefaults.DefaultLoadRate),
-            DurationSeconds: CliArgParser.ParseInt(args, "--duration", TransactionLoadTestDefaults.DefaultLoadDurationSeconds));
+            Rate: CliArgParser.ParseInt(
+                args,
+                "--rate",
+                TransactionLoadTestDefaults.DefaultLoadRate
+            ),
+            DurationSeconds: CliArgParser.ParseInt(
+                args,
+                "--duration",
+                TransactionLoadTestDefaults.DefaultLoadDurationSeconds
+            )
+        );
     }
+
     public string DescribeAuth() =>
         new ResolvedLoadTestAuth(BearerToken, AuthSource, AuthBaseUrl).Describe();
 }
@@ -38,11 +50,15 @@ internal sealed record StressTestOptions(
     int StepSeconds,
     int StepPauseSeconds,
     double FailureThresholdPercent,
-    int MaxMeanLatencyMs)
+    int MaxMeanLatencyMs
+)
 {
     public const int DefaultStepPauseSeconds = 61;
 
-    public static async Task<StressTestOptions> ParseAsync(string[] args, CancellationToken cancellationToken = default)
+    public static async Task<StressTestOptions> ParseAsync(
+        string[] args,
+        CancellationToken cancellationToken = default
+    )
     {
         var baseUrl = CliArgParser.ParseString(args, "--url");
         var auth = await LoadTestTokenResolver.ResolveAsync(args, baseUrl, cancellationToken);
@@ -52,13 +68,38 @@ internal sealed record StressTestOptions(
             BearerToken: auth.Token,
             AuthSource: auth.Source,
             AuthBaseUrl: auth.AuthBaseUrl,
-            StartRate: CliArgParser.ParseInt(args, "--start-rate", TransactionLoadTestDefaults.DefaultStressStartRate),
-            StepRate: CliArgParser.ParseInt(args, "--step", TransactionLoadTestDefaults.DefaultStressStepRate),
-            MaxRate: CliArgParser.ParseInt(args, "--max-rate", TransactionLoadTestDefaults.DefaultStressMaxRate),
-            StepSeconds: CliArgParser.ParseInt(args, "--step-duration", TransactionLoadTestDefaults.DefaultStressStepSeconds),
+            StartRate: CliArgParser.ParseInt(
+                args,
+                "--start-rate",
+                TransactionLoadTestDefaults.DefaultStressStartRate
+            ),
+            StepRate: CliArgParser.ParseInt(
+                args,
+                "--step",
+                TransactionLoadTestDefaults.DefaultStressStepRate
+            ),
+            MaxRate: CliArgParser.ParseInt(
+                args,
+                "--max-rate",
+                TransactionLoadTestDefaults.DefaultStressMaxRate
+            ),
+            StepSeconds: CliArgParser.ParseInt(
+                args,
+                "--step-duration",
+                TransactionLoadTestDefaults.DefaultStressStepSeconds
+            ),
             StepPauseSeconds: CliArgParser.ParseInt(args, "--step-pause", DefaultStepPauseSeconds),
-            FailureThresholdPercent: CliArgParser.ParseDouble(args, "--failure-threshold", TransactionLoadTestDefaults.DefaultStressFailureThresholdPercent),
-            MaxMeanLatencyMs: CliArgParser.ParseInt(args, "--max-mean-latency", TransactionSlo.MaxMeanLatencyMs));
+            FailureThresholdPercent: CliArgParser.ParseDouble(
+                args,
+                "--failure-threshold",
+                TransactionLoadTestDefaults.DefaultStressFailureThresholdPercent
+            ),
+            MaxMeanLatencyMs: CliArgParser.ParseInt(
+                args,
+                "--max-mean-latency",
+                TransactionLoadTestSloGates.MaxMeanLatencyMs
+            )
+        );
     }
 
     public string DescribeAuth() =>
@@ -89,10 +130,11 @@ internal static class CliArgParser
             if (!File.Exists(path))
             {
                 throw new FileNotFoundException(
-                    $"Token file not found: {path}{Environment.NewLine}" +
-                    $"Current directory: {Directory.GetCurrentDirectory()}{Environment.NewLine}" +
-                    "Create the file with a single access token line, or omit --token-file to auto-login.",
-                    path);
+                    $"Token file not found: {path}{Environment.NewLine}"
+                        + $"Current directory: {Directory.GetCurrentDirectory()}{Environment.NewLine}"
+                        + "Create the file with a single access token line, or omit --token-file to auto-login.",
+                    path
+                );
             }
 
             var fileToken = File.ReadAllText(path).Trim();
@@ -112,7 +154,8 @@ internal static class CliArgParser
             if (string.IsNullOrWhiteSpace(envToken))
             {
                 throw new InvalidOperationException(
-                    $"Environment variable '{tokenEnvVar}' is not set or is empty.");
+                    $"Environment variable '{tokenEnvVar}' is not set or is empty."
+                );
             }
 
             token = NormalizeBearerToken(envToken);
@@ -129,37 +172,49 @@ internal static class CliArgParser
         !string.IsNullOrWhiteSpace(ParseString(args, "--auth-email"))
         || !string.IsNullOrWhiteSpace(ParseString(args, "--auth-password"))
         || !string.IsNullOrWhiteSpace(ParseString(args, "--auth-mfa-code"))
-        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_EMAIL"))
-        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_PASSWORD"))
-        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_MFA_CODE"));
+        || !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_EMAIL")
+        )
+        || !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_PASSWORD")
+        )
+        || !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_MFA_CODE")
+        );
 
-    public static IReadOnlyList<LoadTestAuthCredentials> BuildAuthCredentialCandidates(string[] args)
+    public static IReadOnlyList<LoadTestAuthCredentials> BuildAuthCredentialCandidates(
+        string[] args
+    )
     {
         var authBaseUrl = FirstNonEmpty(
             ParseString(args, "--auth-url"),
             Environment.GetEnvironmentVariable("CASHFLOW_AUTH_URL"),
-            DefaultAuthBaseUrl)!;
+            DefaultAuthBaseUrl
+        )!;
 
         var password = FirstNonEmpty(
             ParseString(args, "--auth-password"),
             Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_PASSWORD"),
             Environment.GetEnvironmentVariable("COGNITO_PASSWORD"),
             Environment.GetEnvironmentVariable("DemoAccount__Password"),
-            DefaultPassword)!;
+            DefaultPassword
+        )!;
 
         var mfaCode = FirstNonEmpty(
             ParseString(args, "--auth-mfa-code"),
             Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_MFA_CODE"),
             Environment.GetEnvironmentVariable("COGNITO_MFA_CODE"),
             Environment.GetEnvironmentVariable("DemoAccount__MfaCode"),
-            DefaultMfaCode)!;
+            DefaultMfaCode
+        )!;
 
         if (HasExplicitAuthOverrides(args))
         {
             var email = FirstNonEmpty(
                 ParseString(args, "--auth-email"),
                 Environment.GetEnvironmentVariable("CASHFLOW_LOAD_TEST_EMAIL"),
-                "admin@cashflow.docker")!;
+                "admin@cashflow.docker"
+            )!;
 
             return [new LoadTestAuthCredentials(authBaseUrl, email, password, mfaCode)];
         }
@@ -167,9 +222,27 @@ internal static class CliArgParser
         var cognitoEnv = CognitoLocalCredentialsLoader.TryLoad();
         var candidates = new List<LoadTestAuthCredentials>();
 
-        AddCandidate(candidates, authBaseUrl, Environment.GetEnvironmentVariable("COGNITO_USERNAME"), password, mfaCode);
-        AddCandidate(candidates, authBaseUrl, GetCognitoValue(cognitoEnv, "COGNITO_USERNAME"), password, mfaCode);
-        AddCandidate(candidates, authBaseUrl, Environment.GetEnvironmentVariable("DemoAccount__Email"), password, mfaCode);
+        AddCandidate(
+            candidates,
+            authBaseUrl,
+            Environment.GetEnvironmentVariable("COGNITO_USERNAME"),
+            password,
+            mfaCode
+        );
+        AddCandidate(
+            candidates,
+            authBaseUrl,
+            GetCognitoValue(cognitoEnv, "COGNITO_USERNAME"),
+            password,
+            mfaCode
+        );
+        AddCandidate(
+            candidates,
+            authBaseUrl,
+            Environment.GetEnvironmentVariable("DemoAccount__Email"),
+            password,
+            mfaCode
+        );
         AddCandidate(candidates, authBaseUrl, "admin@cashflow.docker", password, mfaCode);
         AddCandidate(candidates, authBaseUrl, "admin@cashflow.local", password, mfaCode);
 
@@ -181,14 +254,19 @@ internal static class CliArgParser
         string authBaseUrl,
         string? email,
         string password,
-        string mfaCode)
+        string mfaCode
+    )
     {
         if (string.IsNullOrWhiteSpace(email))
         {
             return;
         }
 
-        if (candidates.Any(candidate => string.Equals(candidate.Email, email, StringComparison.OrdinalIgnoreCase)))
+        if (
+            candidates.Any(candidate =>
+                string.Equals(candidate.Email, email, StringComparison.OrdinalIgnoreCase)
+            )
+        )
         {
             return;
         }
@@ -200,8 +278,10 @@ internal static class CliArgParser
     {
         for (var index = 0; index < args.Length - 1; index++)
         {
-            if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(args[index + 1], out var value))
+            if (
+                string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(args[index + 1], out var value)
+            )
             {
                 return value;
             }
@@ -214,8 +294,10 @@ internal static class CliArgParser
     {
         for (var index = 0; index < args.Length - 1; index++)
         {
-            if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase)
-                && double.TryParse(args[index + 1], out var value))
+            if (
+                string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase)
+                && double.TryParse(args[index + 1], out var value)
+            )
             {
                 return value;
             }
@@ -237,8 +319,10 @@ internal static class CliArgParser
         return null;
     }
 
-    private static string? GetCognitoValue(IReadOnlyDictionary<string, string> cognitoEnv, string key) =>
-        cognitoEnv.TryGetValue(key, out var value) ? value : null;
+    private static string? GetCognitoValue(
+        IReadOnlyDictionary<string, string> cognitoEnv,
+        string key
+    ) => cognitoEnv.TryGetValue(key, out var value) ? value : null;
 
     public static string NormalizeBearerToken(string token)
     {

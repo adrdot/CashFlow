@@ -1,8 +1,10 @@
+using Aspire.CashFlow.ServiceDefaults.Aws;
+
 namespace CashFlow.Reporting.Infrastructure.Messaging;
 
 internal static class LocalStackSqsUrlNormalizer
 {
-    public static string Normalize(string queueUrl, string serviceUrl)
+    public static string Normalize(string queueUrl, string serviceUrl, AwsOptions awsOptions)
     {
         if (string.IsNullOrWhiteSpace(queueUrl) || string.IsNullOrWhiteSpace(serviceUrl))
         {
@@ -15,6 +17,7 @@ internal static class LocalStackSqsUrlNormalizer
             return queueUrl;
         }
 
-        return $"{serviceUrl.TrimEnd('/')}/000000000000/{queueName}";
+        var accountId = AwsCredentialResolver.ResolveLocalStackAccountId(awsOptions);
+        return $"{serviceUrl.TrimEnd('/')}/{accountId}/{queueName}";
     }
 }

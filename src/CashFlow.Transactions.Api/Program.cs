@@ -1,10 +1,12 @@
-using AspireApp1.ServiceDefaults.Authentication;
-using AspireApp1.ServiceDefaults.Security;
+using Aspire.CashFlow.ServiceDefaults;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
+using Aspire.CashFlow.ServiceDefaults.Security;
 using CashFlow.Transactions.Api.Configuration;
 using CashFlow.Transactions.Api.Endpoints;
 using CashFlow.Transactions.Api.HealthChecks;
 using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Application.UseCases;
+using CashFlow.Transactions.Infrastructure.EventStore;
 using CashFlow.Transactions.Infrastructure.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,15 +18,20 @@ builder.Services.AddCashFlowJwtAuthentication(builder.Configuration);
 builder.Services.AddTransactionsInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<ITransactionService, CreateTransactionHandler>();
 
-var eventStoreEndpoint = builder.Configuration["EventStore:HttpEndpoint"];
-if (!string.IsNullOrWhiteSpace(eventStoreEndpoint))
+var eventStoreOptions =
+    builder.Configuration.GetSection(EventStoreOptions.SectionName).Get<EventStoreOptions>();
+if (eventStoreOptions is not null && !string.IsNullOrWhiteSpace(eventStoreOptions.HttpEndpoint))
 {
-    builder.Services.AddHttpClient("eventstore", client =>
-    {
-        client.BaseAddress = new Uri(eventStoreEndpoint.TrimEnd('/') + "/");
-        client.Timeout = TimeSpan.FromSeconds(10);
-    });
-    builder.Services.AddHealthChecks()
+    builder.Services.AddHttpClient(
+        "eventstore",
+        client =>
+        {
+            client.BaseAddress = new Uri(eventStoreOptions.HttpEndpoint.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(eventStoreOptions.HttpTimeoutSeconds);
+        }
+    );
+    builder
+        .Services.AddHealthChecks()
         .AddCheck<EventStoreHealthCheck>("eventstore", tags: ["ready"]);
 }
 
@@ -37,12 +44,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseExceptionHandler();
-app.UseCashFlowHttpsRedirection();
-app.UseCashFlowSecurity();
-app.UseMiddleware<TransactionObservabilityMiddleware>();
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseCashFlowApiPipeline();
+app.UseCashFlowApiAuthentication();
 
 app.MapTransactionEndpoints();
 app.MapDefaultEndpoints();

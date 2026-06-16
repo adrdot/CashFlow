@@ -12,7 +12,7 @@ groups:
           description: Persistent subscription lag exceeded 100 events for 5 minutes.
 
       - alert: MessagingPipelineSqsBacklogSustained
-        expr: max(reporting_sqs_visible_messages) > 0
+        expr: max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~"cashflow-transaction-recorded.*"}) > 0
         for: 5m
         labels:
           severity: warning

@@ -16,7 +16,8 @@ public sealed class ReportingMetricsTests
 
         var measurement = Assert.Single(
             harness.SnapshotMeasurements(),
-            m => m.InstrumentName == "reporting.messages.consumed");
+            m => m.InstrumentName == "reporting.messages.consumed"
+        );
         Assert.Equal(1L, measurement.Value);
     }
 
@@ -30,22 +31,12 @@ public sealed class ReportingMetricsTests
 
         var measurement = Assert.Single(
             harness.SnapshotMeasurements(),
-            m => m.InstrumentName == "reporting.projection.duration");
-        Assert.Contains(measurement.Tags, tag => tag.Key == ReportingMetrics.Tags.Outcome && (string?)tag.Value == "success");
-    }
-
-    [Fact]
-    public void RecordHttpRequest_RecordsStatusClassTag()
-    {
-        using var harness = new MetricsTestHarness();
-        var metrics = harness.CreateMetrics();
-
-        metrics.RecordHttpRequest("GET", "/api/reports/daily", 500);
-
-        var measurement = Assert.Single(
-            harness.SnapshotMeasurements(),
-            m => m.InstrumentName == "reporting.requests.total");
-        Assert.Contains(measurement.Tags, tag => tag.Key == ReportingMetrics.Tags.StatusClass && (string?)tag.Value == "5xx");
+            m => m.InstrumentName == "reporting.projection.duration"
+        );
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == ReportingMetrics.Tags.Outcome && (string?)tag.Value == "success"
+        );
     }
 
     [Fact]
@@ -58,8 +49,12 @@ public sealed class ReportingMetricsTests
 
         var measurement = Assert.Single(
             harness.SnapshotMeasurements(),
-            m => m.InstrumentName == "reporting.read.duration");
-        Assert.Contains(measurement.Tags, tag => tag.Key == ReportingMetrics.Tags.Cache && (string?)tag.Value == "hit");
+            m => m.InstrumentName == "reporting.read.duration"
+        );
+        Assert.Contains(
+            measurement.Tags,
+            tag => tag.Key == ReportingMetrics.Tags.Cache && (string?)tag.Value == "hit"
+        );
     }
 
     private sealed class MetricsTestHarness : IDisposable
@@ -82,7 +77,6 @@ public sealed class ReportingMetricsTests
         {
             var services = new ServiceCollection();
             services.AddMetrics();
-            services.AddSingleton<ReportingQueueStats>();
             provider = services.BuildServiceProvider();
 
             listener.InstrumentPublished = (instrument, meterListener) =>
@@ -98,11 +92,8 @@ public sealed class ReportingMetricsTests
             listener.Start();
         }
 
-        public ReportingMetrics CreateMetrics()
-        {
-            var queueStats = provider.GetRequiredService<ReportingQueueStats>();
-            return new ReportingMetrics(provider.GetRequiredService<IMeterFactory>(), queueStats);
-        }
+        public ReportingMetrics CreateMetrics() =>
+            new(provider.GetRequiredService<IMeterFactory>());
 
         public void Dispose()
         {
@@ -114,14 +105,15 @@ public sealed class ReportingMetricsTests
             Instrument instrument,
             T measurement,
             ReadOnlySpan<KeyValuePair<string, object?>> tags,
-            object? state) where T : struct
+            object? state
+        )
+            where T : struct
         {
             lock (sync)
             {
-                measurements.Add(new RecordedMeasurement(
-                    instrument.Name,
-                    measurement!,
-                    tags.ToArray()));
+                measurements.Add(
+                    new RecordedMeasurement(instrument.Name, measurement!, tags.ToArray())
+                );
             }
         }
     }
@@ -129,5 +121,6 @@ public sealed class ReportingMetricsTests
     private sealed record RecordedMeasurement(
         string InstrumentName,
         object Value,
-        KeyValuePair<string, object?>[] Tags);
+        KeyValuePair<string, object?>[] Tags
+    );
 }

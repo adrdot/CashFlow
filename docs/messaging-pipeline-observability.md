@@ -6,7 +6,7 @@ Como verificar se a vazão de escrita acompanha o consumo downstream. Decisões 
 
 ```text
 POST /api/transactions
-    │  transactions.requests.total
+    │  http_server_request_duration_seconds (OTEL)
     │  transactions.persistence.duration
     │  transactions.eventstore.append.duration
     ▼
@@ -20,8 +20,8 @@ Relay → SNS ──────────────────────
     │  transactions.publish.duration
     │  transactions.end_to_end.duration
     ▼
-SNS → SQS ───────────────────────────────────── reporting.sqs.visible_messages
-    │                                          reporting.sqs.in_flight_messages
+SNS → SQS ───────────────────────────────────── aws_sqs_approximate_number_of_messages_visible_average
+    │                                          aws_sqs_approximate_number_of_messages_not_visible_average
     ▼
 Reporting Worker ───────────────────────────── reporting.messages.consumed
     │  reporting.projection.duration
@@ -38,7 +38,7 @@ reporting-db
 
 | Métrica | Tipo | Tags | Finalidade |
 |---------|------|------|------------|
-| `transactions.requests.total` | Counter | `method`, `route`, `status_class` | Carga HTTP; base para taxa de erro 5xx |
+| `http_server_request_duration_seconds` | Histogram (OTEL) | `http_response_status_code`, … | Carga HTTP; base para taxa de erro 5xx |
 | `transactions.created` | Counter | `type` | **Entrada do pipeline** — eventos novos no EventStore (exclui replay idempotente) |
 | `transactions.idempotent_replays` | Counter | — | Replay da mesma `Idempotency-Key` (sem evento novo) |
 | `transactions.persistence.failures` | Counter | `stage` | Falhas no caminho de escrita (`eventstore`, etc.) |
@@ -65,14 +65,14 @@ reporting-db
 | `reporting.messages.failures` | Counter | OTLP | Falhas de projeção |
 | `reporting.projection.duration` | Histogram | OTLP | Por mensagem SQS + SQL |
 | `reporting.pipeline.duration` | Histogram | OTLP | `CreatedAtUtc` → reporting-db OK |
-| `reporting.sqs.visible_messages` | Gauge | OTLP | Profundidade da fila |
-| `reporting.sqs.in_flight_messages` | Gauge | OTLP | Visibility timeout / em voo |
+
+Profundidade SQS: métricas nativas CloudWatch via **YACE** (`infra/observability/yace/config.yml`) → Prometheus. Requer LocalStack com SQS ativo.
 
 ### Reporting API
 
 | Métrica | Tipo | Exportação | Finalidade |
 |---------|------|------------|------------|
-| `reporting.requests.total` | Counter | Prometheus | Carga HTTP |
+| `http_server_request_duration_seconds` | Histogram (OTEL) | Prometheus | Carga HTTP |
 | `reporting.read.duration` | Histogram | Prometheus | Latência de leitura (`cache`, `outcome`) |
 | `reporting.cache.hits` / `misses` / `invalidations` | Counter | Prometheus/OTLP | Comportamento do cache |
 | `reporting.export.successes` / `failures` | Counter | Prometheus | Exportação CSV/PDF |
@@ -144,7 +144,7 @@ rate(transactions_created)  ──►  rate(transactions_events_published)
 ### Cenários específicos
 
 1. **Teste de carga parou mas métricas sobem** — drenagem de backlog; confirmar `increase(...[5m])` → 0.
-2. **Idempotência vs throughput** — `requests.total` alto + `created` baixo → ver `idempotent_replays`.
+2. **Idempotência vs throughput** — HTTP RPS alto + `created` baixo → ver `idempotent_replays`.
 3. **Latência vs backlog** — `end_to_end.duration` alto + lag ↑ → relay/SNS; `pipeline.duration` alto + SQS ↑ → Reporting/SQL.
 4. **Mensagens parked** sustentadas → intervenção manual no EventStore.
 
@@ -171,6 +171,8 @@ AppHost services --OTLP--> localhost:4318 (collector) --+--> Prometheus :8889/me
 $env:CASHFLOW_OTEL_COLLECTOR_ENDPOINT = "http://127.0.0.1:4318"
 .\infra\observability\start-observability.ps1
 ```
+
+YACE exporta profundidade SQS do LocalStack para Prometheus (`aws_sqs_*_average`). Verifique em http://localhost:5000/metrics com LocalStack ativo.
 
 | Caminho de exportação | Métricas |
 |-----------------------|----------|

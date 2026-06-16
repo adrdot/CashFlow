@@ -1,5 +1,6 @@
-using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Application.Contracts;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
+using CashFlow.Auth.Infrastructure.Persistence.Abstractions;
 using CashFlow.Auth.Domain.Entities;
 
 namespace CashFlow.Auth.Infrastructure.Identity;
@@ -9,20 +10,30 @@ namespace CashFlow.Auth.Infrastructure.Identity;
 /// <c>specs/005-adicionar-seguran-front/deferred.md</c>.
 /// When Cognito is enabled, this service is registered but does not call Cognito Admin APIs yet.
 /// </summary>
-public sealed class CognitoUserAdministrationService(IUserAccountStore userAccountStore) : IUserAdministrationService
+public sealed class CognitoUserAdministrationService(IUserAccountStore userAccountStore)
+    : IUserAdministrationService
 {
-    public async Task<UserSummary?> FindByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<UserSummary?> FindByEmailAsync(
+        string email,
+        CancellationToken cancellationToken = default
+    )
     {
         var userAccount = await userAccountStore.FindByEmailAsync(email, cancellationToken);
         return userAccount is null ? null : Map(userAccount);
     }
 
-    public Task<UserSummary> UpsertUserAsync(UserSummary user, CancellationToken cancellationToken = default)
+    public Task<UserSummary> UpsertUserAsync(
+        UserSummary user,
+        CancellationToken cancellationToken = default
+    )
     {
         return Task.FromResult(user);
     }
 
-    public Task<UserAccessAssignment> AssignAccessAsync(UserAccessAssignment assignment, CancellationToken cancellationToken = default)
+    public Task<UserAccessAssignment> AssignAccessAsync(
+        UserAccessAssignment assignment,
+        CancellationToken cancellationToken = default
+    )
     {
         return Task.FromResult(assignment);
     }
@@ -40,7 +51,7 @@ public sealed class CognitoUserAdministrationService(IUserAccountStore userAccou
             Email = userAccount.Email,
             DisplayName = userAccount.DisplayName,
             IsActive = userAccount.IsActive,
-            AuthenticationSource = "InMemoryFallback"
+            AuthenticationSource = "InMemoryFallback",
         };
     }
 }

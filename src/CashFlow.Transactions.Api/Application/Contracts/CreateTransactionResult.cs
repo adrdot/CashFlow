@@ -2,17 +2,11 @@ namespace CashFlow.Transactions.Application.Contracts;
 
 public sealed record CreateTransactionResult
 {
-    public static CreateTransactionResult Success(TransactionReceipt transaction) => new()
-    {
-        Succeeded = true,
-        Transaction = transaction
-    };
+    public static CreateTransactionResult Success(TransactionReceipt transaction) =>
+        new() { Succeeded = true, Transaction = transaction };
 
-    public static CreateTransactionResult Failure(string errorMessage) => new()
-    {
-        Succeeded = false,
-        ErrorMessage = errorMessage
-    };
+    public static CreateTransactionResult Failure(string errorMessage) =>
+        new() { Succeeded = false, ErrorMessage = errorMessage };
 
     public bool Succeeded { get; init; }
 

@@ -4,9 +4,9 @@ public sealed class ReportingCacheOptions
 {
     public const string SectionName = "Reporting:Cache";
 
-    public int CurrentDayTtlMinutes { get; set; } = 15;
+    public int CurrentDayTtlMinutes { get; set; }
 
-    public int ClosedDayTtlHours { get; set; } = 24;
+    public int ClosedDayTtlHours { get; set; }
 }
 
 public sealed class ReportingRedisOptions

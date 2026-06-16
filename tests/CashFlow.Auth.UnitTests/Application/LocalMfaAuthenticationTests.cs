@@ -1,6 +1,9 @@
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Infrastructure.Configuration;
 using CashFlow.Auth.Infrastructure.Identity;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
 using CashFlow.Auth.Infrastructure.Security;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.UnitTests.Application;
@@ -12,11 +15,13 @@ public sealed class LocalMfaAuthenticationTests
     {
         var provider = CreateProvider(requireMfa: true);
 
-        var result = await provider.AuthenticateAsync(new CashFlow.Auth.Application.Contracts.LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var result = await provider.AuthenticateAsync(
+            new CashFlow.Auth.Application.Contracts.LoginRequest
+            {
+                Email = "admin@cashflow.local",
+                Password = "Pass@word1",
+            }
+        );
 
         Assert.True(result.RequiresMfa);
         Assert.False(result.Succeeded);
@@ -28,20 +33,24 @@ public sealed class LocalMfaAuthenticationTests
     {
         var provider = CreateProvider(requireMfa: true);
 
-        var challenge = await provider.AuthenticateAsync(new CashFlow.Auth.Application.Contracts.LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1"
-        });
+        var challenge = await provider.AuthenticateAsync(
+            new CashFlow.Auth.Application.Contracts.LoginRequest
+            {
+                Email = "admin@cashflow.local",
+                Password = "Pass@word1",
+            }
+        );
 
-        var result = await provider.AuthenticateAsync(new CashFlow.Auth.Application.Contracts.LoginRequest
-        {
-            Email = "admin@cashflow.local",
-            Password = "Pass@word1",
-            ChallengeSession = challenge.ChallengeSession,
-            ChallengeName = challenge.ChallengeName,
-            MfaCode = "123456"
-        });
+        var result = await provider.AuthenticateAsync(
+            new CashFlow.Auth.Application.Contracts.LoginRequest
+            {
+                Email = "admin@cashflow.local",
+                Password = "Pass@word1",
+                ChallengeSession = challenge.ChallengeSession,
+                ChallengeName = challenge.ChallengeName,
+                MfaCode = "123456",
+            }
+        );
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Token);
@@ -50,8 +59,9 @@ public sealed class LocalMfaAuthenticationTests
     private static CognitoIdentityProvider CreateProvider(bool requireMfa)
     {
         var passwordVerifier = new PasswordVerifier();
-        var userAccountStore = new InMemoryUserAccountStore(passwordVerifier);
-        var tokenService = new JwtTokenService(Options.Create(new JwtOptions()));
+        var localAuthOptions = TestLocalAuthOptions.Create();
+        var userAccountStore = new InMemoryUserAccountStore(passwordVerifier, localAuthOptions);
+        var tokenService = new JwtTokenService(TestJwtOptions.Create());
         var cognitoIdentityGateway = new NoOpCognitoIdentityGateway();
 
         return new CognitoIdentityProvider(
@@ -60,30 +70,50 @@ public sealed class LocalMfaAuthenticationTests
             passwordVerifier,
             tokenService,
             new LocalMfaChallengeStore(),
-            Options.Create(new CognitoOptions
-            {
-                Enabled = false,
-                AuthenticationSource = "InMemoryFallback",
-                RequireMfa = requireMfa
-            }),
-            Options.Create(new LocalAuthOptions()));
+            Options.Create(
+                new CognitoOptions
+                {
+                    Enabled = false,
+                    AuthenticationSource = "InMemoryFallback",
+                    RequireMfa = requireMfa,
+                }
+            ),
+            localAuthOptions
+        );
     }
 
     private sealed class NoOpCognitoIdentityGateway : ICognitoIdentityGateway
     {
-        public Task<CognitoAuthResult> AuthenticateAsync(string clientId, string username, string password, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException();
+        public Task<CognitoAuthResult> AuthenticateAsync(
+            string clientId,
+            string username,
+            string password,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException();
 
-        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(string clientId, string challengeSession, string username, string mfaCode, string challengeName, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException();
+        public Task<CognitoAuthResult> RespondToMfaChallengeAsync(
+            string clientId,
+            string challengeSession,
+            string username,
+            string mfaCode,
+            string challengeName,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException();
 
-        public Task<CognitoAuthResult> RefreshTokenAsync(string clientId, string refreshToken, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException();
+        public Task<CognitoAuthResult> RefreshTokenAsync(
+            string clientId,
+            string refreshToken,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException();
 
-        public Task<CognitoUserProfile?> GetUserAsync(string accessToken, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException();
+        public Task<CognitoUserProfile?> GetUserAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => throw new InvalidOperationException();
 
-        public Task GlobalSignOutAsync(string accessToken, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task GlobalSignOutAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
     }
 }

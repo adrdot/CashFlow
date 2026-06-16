@@ -1,5 +1,6 @@
 using System.Diagnostics;
-using CashFlow.Transactions.Application.Abstractions;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Domain.Entities;
 using CashFlow.Transactions.Infrastructure.EventStore;
@@ -12,13 +13,15 @@ public sealed class EventStoreTransactionRepository(
     IEventStoreTransactionWriter eventStoreWriter,
     IEventStoreTransactionReader eventStoreReader,
     TransactionMetrics metrics,
-    ILogger<EventStoreTransactionRepository> logger) : ITransactionRepository
+    ILogger<EventStoreTransactionRepository> logger
+) : ITransactionRepository
 {
     public async Task<PersistenceOutcome> SaveAsync(
         CashFlowTransaction transaction,
         string userId,
         string? idempotencyKey = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var stopwatch = Stopwatch.StartNew();
         var persisted = false;
@@ -37,7 +40,11 @@ public sealed class EventStoreTransactionRepository(
 
             if (hasIdempotencyKey)
             {
-                var existing = await eventStoreReader.TryGetByEventIdAsync(userId, eventId, cancellationToken);
+                var existing = await eventStoreReader.TryGetByEventIdAsync(
+                    userId,
+                    eventId,
+                    cancellationToken
+                );
                 if (existing is not null)
                 {
                     return CompleteIdempotentReplay(existing, stopwatch);
@@ -45,10 +52,16 @@ public sealed class EventStoreTransactionRepository(
             }
             else
             {
-                var existing = await eventStoreReader.TryGetByEventIdAsync(userId, eventId, cancellationToken);
+                var existing = await eventStoreReader.TryGetByEventIdAsync(
+                    userId,
+                    eventId,
+                    cancellationToken
+                );
                 if (existing is not null)
                 {
-                    return PersistenceOutcome.Failure("A transaction with the same identifier already exists.");
+                    return PersistenceOutcome.Failure(
+                        "A transaction with the same identifier already exists."
+                    );
                 }
             }
 
@@ -60,7 +73,7 @@ public sealed class EventStoreTransactionRepository(
                 Amount = transaction.Amount,
                 Description = transaction.Description,
                 TransactionDate = transaction.OccurredOn,
-                CreatedAtUtc = transaction.CreatedAtUtc
+                CreatedAtUtc = transaction.CreatedAtUtc,
             };
 
             try
@@ -69,7 +82,8 @@ public sealed class EventStoreTransactionRepository(
                     recordedEvent,
                     eventId,
                     idempotencyKey,
-                    cancellationToken);
+                    cancellationToken
+                );
             }
             catch (Exception ex)
             {
@@ -78,14 +92,21 @@ public sealed class EventStoreTransactionRepository(
                     TransactionLogEvents.TransactionPersistenceFailed,
                     ex,
                     "EventStore append failed for transaction {TransactionId}.",
-                    transaction.Id);
+                    transaction.Id
+                );
 
-                return PersistenceOutcome.Failure($"Transaction could not be recorded in EventStore: {ex.Message}");
+                return PersistenceOutcome.Failure(
+                    $"Transaction could not be recorded in EventStore: {ex.Message}"
+                );
             }
 
             if (hasIdempotencyKey)
             {
-                var stored = await eventStoreReader.TryGetByEventIdAsync(userId, eventId, cancellationToken);
+                var stored = await eventStoreReader.TryGetByEventIdAsync(
+                    userId,
+                    eventId,
+                    cancellationToken
+                );
                 if (stored is not null && stored.TransactionId != transaction.Id)
                 {
                     return CompleteIdempotentReplay(stored, stopwatch);
@@ -97,36 +118,43 @@ public sealed class EventStoreTransactionRepository(
                 TransactionLogEvents.TransactionCreated,
                 "Transaction {TransactionId} persisted for user {UserId}.",
                 transaction.Id,
-                userId);
+                userId
+            );
 
             persisted = true;
             return PersistenceOutcome.Success(transaction.Id);
         }
         finally
         {
-            metrics.RecordPersistenceDuration(
-                stopwatch.Elapsed,
-                persisted ? "success" : "failure");
+            metrics.RecordPersistenceDuration(stopwatch.Elapsed, persisted ? "success" : "failure");
         }
     }
 
-    private PersistenceOutcome CompleteIdempotentReplay(TransactionRecordedEvent existing, Stopwatch stopwatch)
+    private PersistenceOutcome CompleteIdempotentReplay(
+        TransactionRecordedEvent existing,
+        Stopwatch stopwatch
+    )
     {
         metrics.IncrementIdempotentReplays();
         logger.LogInformation(
             TransactionLogEvents.TransactionIdempotentReplay,
             "Served idempotent replay for transaction {TransactionId}.",
-            existing.TransactionId);
+            existing.TransactionId
+        );
 
         metrics.RecordPersistenceDuration(stopwatch.Elapsed, "replay");
         return PersistenceOutcome.Replay(ToSnapshot(existing));
     }
 
-    private static PersistedTransactionSnapshot ToSnapshot(TransactionRecordedEvent recordedEvent) => new(
-        recordedEvent.TransactionId,
-        recordedEvent.Type,
-        recordedEvent.Amount,
-        recordedEvent.Description,
-        recordedEvent.TransactionDate,
-        recordedEvent.CreatedAtUtc);
+    private static PersistedTransactionSnapshot ToSnapshot(
+        TransactionRecordedEvent recordedEvent
+    ) =>
+        new(
+            recordedEvent.TransactionId,
+            recordedEvent.Type,
+            recordedEvent.Amount,
+            recordedEvent.Description,
+            recordedEvent.TransactionDate,
+            recordedEvent.CreatedAtUtc
+        );
 }

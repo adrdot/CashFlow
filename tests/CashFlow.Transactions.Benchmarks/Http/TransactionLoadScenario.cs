@@ -13,7 +13,8 @@ internal sealed record LoadStepResult(
     double OkRps,
     double MeanLatencyMs,
     double FailPercent,
-    string? TopFailStatusCode)
+    string? TopFailStatusCode
+)
 {
     public long TotalCount => OkCount + FailCount;
 }
@@ -21,55 +22,75 @@ internal sealed record LoadStepResult(
 internal static class TransactionLoadScenario
 {
     public static string CreatePayload() =>
-        JsonSerializer.Serialize(new CreateTransactionRequest
-        {
-            Type = "Credit",
-            Amount = 10.50m,
-            Description = "HTTP load benchmark",
-            TransactionDate = new DateOnly(2026, 6, 14)
-        });
+        JsonSerializer.Serialize(
+            new CreateTransactionRequest
+            {
+                Type = "Credit",
+                Amount = 10.50m,
+                Description = "HTTP load benchmark",
+                TransactionDate = new DateOnly(2026, 6, 14),
+            }
+        );
 
     public static LoadStepResult RunStep(
         HttpClient client,
         string payload,
         int targetRate,
         int durationSeconds,
-        bool warmup = false)
+        bool warmup = false
+    )
     {
         var warmupDuration = warmup
             ? TimeSpan.FromSeconds(Math.Min(3, Math.Max(1, durationSeconds / 3)))
             : TimeSpan.FromMilliseconds(100);
 
-        var scenario = Scenario.Create($"create_transaction_rps_{targetRate}", async _ =>
-        {
-            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync("/api/transactions", content);
+        var scenario = Scenario
+            .Create(
+                $"create_transaction_rps_{targetRate}",
+                async _ =>
+                {
+                    using var content = new StringContent(
+                        payload,
+                        Encoding.UTF8,
+                        "application/json"
+                    );
+                    var response = await client.PostAsync("/api/transactions", content);
 
-            return response.IsSuccessStatusCode
-                ? Response.Ok(statusCode: ((int)response.StatusCode).ToString(), sizeBytes: payload.Length)
-                : Response.Fail(statusCode: ((int)response.StatusCode).ToString(), sizeBytes: payload.Length);
-        })
-        .WithWarmUpDuration(warmupDuration)
-        .WithLoadSimulations(
-            Simulation.Inject(
-                rate: targetRate,
-                interval: TimeSpan.FromSeconds(1),
-                during: TimeSpan.FromSeconds(durationSeconds)));
+                    return response.IsSuccessStatusCode
+                        ? Response.Ok(
+                            statusCode: ((int)response.StatusCode).ToString(),
+                            sizeBytes: payload.Length
+                        )
+                        : Response.Fail(
+                            statusCode: ((int)response.StatusCode).ToString(),
+                            sizeBytes: payload.Length
+                        );
+                }
+            )
+            .WithWarmUpDuration(warmupDuration)
+            .WithLoadSimulations(
+                Simulation.Inject(
+                    rate: targetRate,
+                    interval: TimeSpan.FromSeconds(1),
+                    during: TimeSpan.FromSeconds(durationSeconds)
+                )
+            );
 
-        var stats = NBomberRunner
-            .RegisterScenarios(scenario)
-            .Run();
+        var stats = NBomberRunner.RegisterScenarios(scenario).Run();
 
-        var scenarioStats = stats.ScenarioStats.FirstOrDefault()
-            ?? throw new InvalidOperationException("No scenario stats were produced by the load test.");
+        var scenarioStats =
+            stats.ScenarioStats.FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                "No scenario stats were produced by the load test."
+            );
 
         var okCount = scenarioStats.Ok.Request.Count;
         var failCount = scenarioStats.Fail.Request.Count;
         var total = okCount + failCount;
         var failPercent = total == 0 ? 100d : failCount * 100d / total;
 
-        var topFailStatus = scenarioStats.Fail.StatusCodes
-            .OrderByDescending(entry => entry.Count)
+        var topFailStatus = scenarioStats
+            .Fail.StatusCodes.OrderByDescending(entry => entry.Count)
             .Select(entry => entry.StatusCode)
             .FirstOrDefault();
 
@@ -80,6 +101,7 @@ internal static class TransactionLoadScenario
             OkRps: scenarioStats.Ok.Request.RPS,
             MeanLatencyMs: scenarioStats.Ok.Latency.MeanMs,
             FailPercent: failPercent,
-            TopFailStatusCode: topFailStatus);
+            TopFailStatusCode: topFailStatus
+        );
     }
 }

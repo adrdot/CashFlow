@@ -18,27 +18,31 @@ public sealed class LoginResult
 
     public SessionState? Session { get; init; }
 
-    public static LoginResult Success(string token, SessionState session, string? refreshToken = null)
+    public static LoginResult Success(
+        string token,
+        SessionState session,
+        string? refreshToken = null
+    )
     {
         return new LoginResult
         {
             Succeeded = true,
             Token = token,
             RefreshToken = refreshToken,
-            Session = session
+            Session = session,
         };
     }
 
     public static LoginResult Failure(string message)
     {
-        return new LoginResult
-        {
-            Succeeded = false,
-            ErrorMessage = message
-        };
+        return new LoginResult { Succeeded = false, ErrorMessage = message };
     }
 
-    public static LoginResult MfaChallenge(string challengeSession, string challengeName, string message)
+    public static LoginResult MfaChallenge(
+        string challengeSession,
+        string challengeName,
+        string message
+    )
     {
         return new LoginResult
         {
@@ -46,7 +50,7 @@ public sealed class LoginResult
             RequiresMfa = true,
             ChallengeSession = challengeSession,
             ChallengeName = challengeName,
-            ErrorMessage = message
+            ErrorMessage = message,
         };
     }
 }

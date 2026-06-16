@@ -7,5 +7,5 @@ public sealed class AuthSessionOptions
     /// <summary>
     /// Minutes before access-token expiry to proactively refresh via the auth API.
     /// </summary>
-    public int RefreshLeadTimeMinutes { get; init; } = 5;
+    public int RefreshLeadTimeMinutes { get; init; }
 }

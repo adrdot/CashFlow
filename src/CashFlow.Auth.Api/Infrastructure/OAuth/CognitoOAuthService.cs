@@ -3,7 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Application.Contracts;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.OAuth.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.Infrastructure.OAuth;
@@ -13,7 +15,8 @@ public sealed class CognitoOAuthService(
     IOptions<CognitoOAuthOptions> oauthOptions,
     IAuthenticationService authenticationService,
     DevAuthorizationCodeStore authorizationCodeStore,
-    IHttpClientFactory httpClientFactory) : ICognitoOAuthService
+    IHttpClientFactory httpClientFactory
+) : ICognitoOAuthService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -25,7 +28,10 @@ public sealed class CognitoOAuthService(
     public string BuildAuthorizeUrl(string redirectUri, string state, string? clientId = null)
     {
         var resolvedClientId = ResolveClientId(clientId);
-        var scope = string.Join(' ', oauth.Scopes.Length == 0 ? ["openid", "email", "profile"] : oauth.Scopes);
+        var scope = string.Join(
+            ' ',
+            oauth.Scopes.Length == 0 ? ["openid", "email", "profile"] : oauth.Scopes
+        );
 
         if (oauth.UseAwsHostedUi)
         {
@@ -35,7 +41,7 @@ public sealed class CognitoOAuthService(
                 ["response_type"] = "code",
                 ["scope"] = scope,
                 ["redirect_uri"] = redirectUri,
-                ["state"] = state
+                ["state"] = state,
             };
 
             return QueryHelpersAppend($"{HostedUiBaseUrl}/oauth2/authorize", query);
@@ -46,7 +52,7 @@ public sealed class CognitoOAuthService(
             ["client_id"] = resolvedClientId,
             ["redirect_uri"] = redirectUri,
             ["state"] = state,
-            ["scope"] = scope
+            ["scope"] = scope,
         };
 
         return QueryHelpersAppend("/api/auth/oauth/login", devQuery);
@@ -57,11 +63,14 @@ public sealed class CognitoOAuthService(
         string redirectUri,
         string state,
         string clientId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (!oauth.UseDevHostedUi)
         {
-            return OAuthAuthorizationResult.Pending(LoginResult.Failure("OAuth dev Hosted UI is not enabled."));
+            return OAuthAuthorizationResult.Pending(
+                LoginResult.Failure("OAuth dev Hosted UI is not enabled.")
+            );
         }
 
         var loginResult = await authenticationService.LoginAsync(request, cancellationToken);
@@ -75,7 +84,8 @@ public sealed class CognitoOAuthService(
             redirectUri,
             ResolveClientId(clientId),
             state,
-            TimeSpan.FromMinutes(5));
+            TimeSpan.FromMinutes(5)
+        );
 
         var redirectUrl = BuildCallbackRedirect(redirectUri, code, state);
         return OAuthAuthorizationResult.Redirect(redirectUrl);
@@ -83,9 +93,13 @@ public sealed class CognitoOAuthService(
 
     public async Task<OAuthTokenResponse?> ExchangeAuthorizationCodeAsync(
         OAuthTokenRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        if (!IsEnabled || !string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
+        if (
+            !IsEnabled
+            || !string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal)
+        )
         {
             return null;
         }
@@ -95,12 +109,14 @@ public sealed class CognitoOAuthService(
             return await ExchangeAwsAuthorizationCodeAsync(request, cancellationToken);
         }
 
-        if (authorizationCodeStore.TryRedeem(
+        if (
+            authorizationCodeStore.TryRedeem(
                 request.Code,
                 request.RedirectUri,
                 ResolveClientId(request.ClientId),
-                out var loginResult)
-            && loginResult is not null)
+                out var loginResult
+            ) && loginResult is not null
+        )
         {
             return OAuthTokenResponse.FromLoginResult(loginResult);
         }
@@ -110,7 +126,8 @@ public sealed class CognitoOAuthService(
 
     private async Task<OAuthTokenResponse?> ExchangeAwsAuthorizationCodeAsync(
         OAuthTokenRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(oauth.ClientSecret))
         {
@@ -118,36 +135,49 @@ public sealed class CognitoOAuthService(
         }
 
         using var httpClient = httpClientFactory.CreateClient(nameof(CognitoOAuthService));
-        using var payload = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code",
-            ["client_id"] = ResolveClientId(request.ClientId),
-            ["client_secret"] = oauth.ClientSecret,
-            ["code"] = request.Code,
-            ["redirect_uri"] = request.RedirectUri
-        });
+        using var payload = new FormUrlEncodedContent(
+            new Dictionary<string, string>
+            {
+                ["grant_type"] = "authorization_code",
+                ["client_id"] = ResolveClientId(request.ClientId),
+                ["client_secret"] = oauth.ClientSecret,
+                ["code"] = request.Code,
+                ["redirect_uri"] = request.RedirectUri,
+            }
+        );
 
-        using var response = await httpClient.PostAsync($"{HostedUiBaseUrl}/oauth2/token", payload, cancellationToken);
+        using var response = await httpClient.PostAsync(
+            $"{HostedUiBaseUrl}/oauth2/token",
+            payload,
+            cancellationToken
+        );
         if (!response.IsSuccessStatusCode)
         {
             return null;
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var tokenPayload = await JsonSerializer.DeserializeAsync<CognitoTokenPayload>(stream, JsonOptions, cancellationToken);
+        var tokenPayload = await JsonSerializer.DeserializeAsync<CognitoTokenPayload>(
+            stream,
+            JsonOptions,
+            cancellationToken
+        );
         if (tokenPayload is null || string.IsNullOrWhiteSpace(tokenPayload.AccessToken))
         {
             return null;
         }
 
-        var session = await authenticationService.ValidateSessionAsync(tokenPayload.AccessToken, cancellationToken);
+        var session = await authenticationService.ValidateSessionAsync(
+            tokenPayload.AccessToken,
+            cancellationToken
+        );
         return new OAuthTokenResponse
         {
             AccessToken = tokenPayload.AccessToken,
             RefreshToken = tokenPayload.RefreshToken,
             IdToken = tokenPayload.IdToken,
             ExpiresIn = tokenPayload.ExpiresIn,
-            Session = session
+            Session = session,
         };
     }
 
@@ -157,7 +187,10 @@ public sealed class CognitoOAuthService(
     private string ResolveClientId(string? clientId) =>
         string.IsNullOrWhiteSpace(clientId) ? cognito.ClientId : clientId;
 
-    private static string QueryHelpersAppend(string baseUrl, IReadOnlyDictionary<string, string?> query)
+    private static string QueryHelpersAppend(
+        string baseUrl,
+        IReadOnlyDictionary<string, string?> query
+    )
     {
         var builder = new StringBuilder(baseUrl);
         builder.Append(baseUrl.Contains('?', StringComparison.Ordinal) ? '&' : '?');

@@ -9,7 +9,10 @@ internal static class ExportAssertions
     public static void AssertCsvMatchesReport(DailyReportResult report, byte[] csvContent)
     {
         var text = Encoding.UTF8.GetString(csvContent);
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var lines = text.Split(
+            '\n',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+        );
         Assert.True(lines.Length >= 2, "CSV export must contain a header row and a totals row.");
 
         var header = lines[0];
@@ -22,7 +25,10 @@ internal static class ExportAssertions
         Assert.Equal(report.ReportDate, DateOnly.Parse(totals[0], CultureInfo.InvariantCulture));
         Assert.Equal(report.TotalDebits, decimal.Parse(totals[1], CultureInfo.InvariantCulture));
         Assert.Equal(report.TotalCredits, decimal.Parse(totals[2], CultureInfo.InvariantCulture));
-        Assert.Equal(report.ConsolidatedBalance, decimal.Parse(totals[3], CultureInfo.InvariantCulture));
+        Assert.Equal(
+            report.ConsolidatedBalance,
+            decimal.Parse(totals[3], CultureInfo.InvariantCulture)
+        );
         Assert.Equal(report.TransactionVolume, int.Parse(totals[4], CultureInfo.InvariantCulture));
     }
 

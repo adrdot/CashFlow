@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using CashFlow.Transactions.Application.Abstractions;
+using CashFlow.Transactions.Infrastructure.Messaging.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Infrastructure.Messaging;
 using CashFlow.Transactions.IntegrationTests.Infrastructure;
@@ -35,13 +35,16 @@ public sealed class ReportingAvailabilityIsolationTests : IAsyncLifetime
         using var client = factory.CreateClient();
         TestJwtTokenHelper.AuthorizeClient(client);
 
-        var response = await client.PostAsJsonAsync("/api/transactions", new CreateTransactionRequest
-        {
-            Type = "Credit",
-            Amount = 150m,
-            Description = "Isolation test credit",
-            TransactionDate = new DateOnly(2026, 6, 15)
-        });
+        var response = await client.PostAsJsonAsync(
+            "/api/transactions",
+            new CreateTransactionRequest
+            {
+                Type = "Credit",
+                Amount = 150m,
+                Description = "Isolation test credit",
+                TransactionDate = new DateOnly(2026, 6, 15),
+            }
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var payload = await response.Content.ReadFromJsonAsync<CreateTransactionResult>();
@@ -56,9 +59,13 @@ public sealed class ReportingAvailabilityIsolationTests : IAsyncLifetime
     [Fact]
     public void TransactionsApi_ProjectDoesNotReferenceReportingAssembly()
     {
-        var assembly = typeof(CashFlow.Transactions.Application.UseCases.CreateTransactionHandler).Assembly;
-        var referencesReporting = assembly.GetReferencedAssemblies()
-            .Any(static a => a.Name?.StartsWith("CashFlow.Reporting", StringComparison.OrdinalIgnoreCase) == true);
+        var assembly =
+            typeof(CashFlow.Transactions.Application.UseCases.CreateTransactionHandler).Assembly;
+        var referencesReporting = assembly
+            .GetReferencedAssemblies()
+            .Any(static a =>
+                a.Name?.StartsWith("CashFlow.Reporting", StringComparison.OrdinalIgnoreCase) == true
+            );
 
         Assert.False(referencesReporting);
     }
@@ -66,7 +73,9 @@ public sealed class ReportingAvailabilityIsolationTests : IAsyncLifetime
     [Fact]
     public void TransactionsApi_UsesNullEventPublisher_OnWritePath()
     {
-        using var factory = new TransactionsWebApplicationFactory(TransactionsTestMode.EventStorePersistence);
+        using var factory = new TransactionsWebApplicationFactory(
+            TransactionsTestMode.EventStorePersistence
+        );
         using var scope = factory.Services.CreateScope();
 
         var publisher = scope.ServiceProvider.GetRequiredService<ITransactionEventPublisher>();

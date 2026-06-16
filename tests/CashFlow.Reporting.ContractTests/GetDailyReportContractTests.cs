@@ -16,7 +16,10 @@ public sealed class GetDailyReportContractTests
     {
         await using var factory = new ReportingWebApplicationFactory();
         using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateTestToken("dev-user"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateTestToken("dev-user")
+        );
 
         var response = await client.GetAsync("/api/reports/daily?date=2026-06-12");
 
@@ -31,17 +34,20 @@ public sealed class GetDailyReportContractTests
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId),
-            new(ClaimTypes.Email, userId)
+            new(ClaimTypes.Email, userId),
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("dev-only-signing-key-change-me-1234567890"));
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes("dev-only-signing-key-change-me-1234567890")
+        );
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
             issuer: "CashFlow.Auth.Api",
             audience: "CashFlow.Web",
             claims: claims,
             expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: credentials);
+            signingCredentials: credentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

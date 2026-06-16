@@ -11,7 +11,8 @@ using Microsoft.Extensions.Options;
 namespace CashFlow.Transactions.IntegrationTests.Messaging;
 
 [Trait("Category", "Docker")]
-public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessagingFixture fixture) : IClassFixture<LocalStackMessagingFixture>
+public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessagingFixture fixture)
+    : IClassFixture<LocalStackMessagingFixture>
 {
     [Fact]
     public async Task PublishAsync_DeliversTransactionEvent_ToSubscribedSqsQueue()
@@ -30,7 +31,7 @@ public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessa
             Amount = 420.50m,
             Description = "LocalStack SNS integration",
             TransactionDate = new DateOnly(2026, 6, 14),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         await publisher.PublishAsync(transactionEvent);
@@ -38,7 +39,10 @@ public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessa
         var payload = await fixture.ReceiveMessageBodyAsync(TimeSpan.FromSeconds(15));
         Assert.NotNull(payload);
 
-        var received = JsonSerializer.Deserialize<TransactionRecordedEvent>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var received = JsonSerializer.Deserialize<TransactionRecordedEvent>(
+            payload,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        );
         Assert.NotNull(received);
         Assert.Equal(transactionEvent.TransactionId, received.TransactionId);
         Assert.Equal(transactionEvent.UserId, received.UserId);
@@ -48,19 +52,22 @@ public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessa
 
     private SnsTransactionEventPublisher CreatePublisher()
     {
-        var options = Options.Create(new MessagingOptions
-        {
-            Enabled = true,
-            SnsTopicArn = fixture.TopicArn,
-            ServiceUrl = fixture.ServiceUrl,
-            Region = "us-east-1"
-        });
+        var options = Options.Create(
+            new MessagingOptions
+            {
+                Enabled = true,
+                SnsTopicArn = fixture.TopicArn,
+                ServiceUrl = fixture.ServiceUrl,
+                Region = "us-east-1",
+            }
+        );
 
         return new SnsTransactionEventPublisher(
             fixture.CreateSnsClient(),
             options,
             CreateTestMetrics(),
-            NullLogger<SnsTransactionEventPublisher>.Instance);
+            NullLogger<SnsTransactionEventPublisher>.Instance
+        );
     }
 
     private static TransactionMetrics CreateTestMetrics()
@@ -71,6 +78,7 @@ public sealed class SnsTransactionEventPublisherIntegrationTests(LocalStackMessa
         using var provider = services.BuildServiceProvider();
         return new TransactionMetrics(
             provider.GetRequiredService<IMeterFactory>(),
-            provider.GetRequiredService<RelaySubscriptionStats>());
+            provider.GetRequiredService<RelaySubscriptionStats>()
+        );
     }
 }

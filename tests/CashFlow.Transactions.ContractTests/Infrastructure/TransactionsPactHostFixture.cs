@@ -1,11 +1,13 @@
 using System.Net;
 using System.Text.Json;
-using AspireApp1.ServiceDefaults.Authentication;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Transactions.Api.Endpoints;
 using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Application.UseCases;
 using CashFlow.Transactions.Infrastructure.Messaging;
+using CashFlow.Transactions.Infrastructure.Messaging.Abstractions;
 using CashFlow.Transactions.Infrastructure.Persistence;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -31,29 +33,32 @@ public sealed class TransactionsPactHostFixture : IAsyncLifetime, IDisposable
         ServerUri = new Uri($"http://127.0.0.1:{port}");
         switchableRepository = new SwitchableTransactionRepository();
 
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            EnvironmentName = Environments.Development
-        });
+        var builder = WebApplication.CreateBuilder(
+            new WebApplicationOptions { EnvironmentName = Environments.Development }
+        );
 
         builder.WebHost.UseUrls(ServerUri.ToString());
 
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:transactions-db"] = string.Empty,
-            ["EventStore:HttpEndpoint"] = string.Empty,
-            ["Messaging:Enabled"] = "false",
-            ["Cognito:Enabled"] = "false",
-            ["Jwt:Issuer"] = TestJwtTokenHelper.DefaultIssuer,
-            ["Jwt:Audience"] = TestJwtTokenHelper.DefaultAudience,
-            ["Jwt:SigningKey"] = TestJwtTokenHelper.DefaultSigningKey
-        });
+        builder.Configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:transactions-db"] = string.Empty,
+                ["EventStore:HttpEndpoint"] = string.Empty,
+                ["Messaging:Enabled"] = "false",
+                ["Cognito:Enabled"] = "false",
+                ["Jwt:Issuer"] = TestJwtTokenHelper.DefaultIssuer,
+                ["Jwt:Audience"] = TestJwtTokenHelper.DefaultAudience,
+                ["Jwt:SigningKey"] = TestJwtTokenHelper.DefaultSigningKey,
+            }
+        );
 
         builder.Services.AddProblemDetails();
         builder.Services.AddCashFlowJwtAuthentication(builder.Configuration);
         builder.Services.RemoveAll<ITransactionRepository>();
         builder.Services.AddSingleton(switchableRepository);
-        builder.Services.AddSingleton<ITransactionRepository>(sp => sp.GetRequiredService<SwitchableTransactionRepository>());
+        builder.Services.AddSingleton<ITransactionRepository>(sp =>
+            sp.GetRequiredService<SwitchableTransactionRepository>()
+        );
         builder.Services.AddSingleton<ITransactionEventPublisher, NullTransactionEventPublisher>();
         builder.Services.AddScoped<ITransactionService, CreateTransactionHandler>();
 
@@ -102,7 +107,10 @@ internal sealed class PactProviderStateMiddleware
     private readonly SwitchableTransactionRepository repository;
     private readonly Dictionary<string, Action> providerStates;
 
-    public PactProviderStateMiddleware(RequestDelegate next, SwitchableTransactionRepository repository)
+    public PactProviderStateMiddleware(
+        RequestDelegate next,
+        SwitchableTransactionRepository repository
+    )
     {
         this.next = next;
         this.repository = repository;
@@ -110,21 +118,26 @@ internal sealed class PactProviderStateMiddleware
         {
             ["a user is authenticated"] = () => repository.PersistenceFails = false,
             ["transaction persistence fails"] = () => repository.PersistenceFails = true,
-            ["no bearer token is provided"] = () => repository.PersistenceFails = false
+            ["no bearer token is provided"] = () => repository.PersistenceFails = false,
         };
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (context.Request.Path == "/provider-states" &&
-            HttpMethods.IsPost(context.Request.Method))
+        if (
+            context.Request.Path == "/provider-states"
+            && HttpMethods.IsPost(context.Request.Method)
+        )
         {
             var providerState = await JsonSerializer.DeserializeAsync<ProviderState>(
                 context.Request.Body,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
 
-            if (providerState?.State is not null &&
-                providerStates.TryGetValue(providerState.State, out var action))
+            if (
+                providerState?.State is not null
+                && providerStates.TryGetValue(providerState.State, out var action)
+            )
             {
                 action();
             }

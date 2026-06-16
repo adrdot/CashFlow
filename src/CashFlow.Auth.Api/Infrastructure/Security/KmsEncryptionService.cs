@@ -1,13 +1,13 @@
-using CashFlow.Auth.Application.Abstractions;
-using CashFlow.Auth.Infrastructure.Configuration;
-using Microsoft.Extensions.Options;
 using System.Text;
+using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.Infrastructure.Security;
 
-public sealed class KmsEncryptionService(
-    IKmsGateway kmsGateway,
-    IOptions<KmsOptions> options) : IEncryptionPolicyService, IKmsEncryptionService
+public sealed class KmsEncryptionService(IKmsGateway kmsGateway, IOptions<KmsOptions> options)
+    : IEncryptionPolicyService,
+        IKmsEncryptionService
 {
     private readonly KmsOptions kmsOptions = options.Value;
 
@@ -17,7 +17,7 @@ public sealed class KmsEncryptionService(
         {
             "Secrets" => kmsOptions.SecretsKeyId,
             "Storage" => kmsOptions.StorageKeyId,
-            _ => kmsOptions.DefaultKeyId
+            _ => kmsOptions.DefaultKeyId,
         };
     }
 
@@ -28,7 +28,11 @@ public sealed class KmsEncryptionService(
             || resourceType.Equals("Database", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<byte[]> EncryptAsync(byte[] plaintext, string purpose, CancellationToken cancellationToken = default)
+    public async Task<byte[]> EncryptAsync(
+        byte[] plaintext,
+        string purpose,
+        CancellationToken cancellationToken = default
+    )
     {
         if (plaintext.Length == 0)
         {
@@ -39,13 +43,19 @@ public sealed class KmsEncryptionService(
         var ciphertext = await kmsGateway.EncryptAsync(keyId, plaintext, cancellationToken);
         if (ciphertext is null || ciphertext.Length == 0)
         {
-            throw new InvalidOperationException($"KMS encryption failed for purpose '{purpose}' using key '{keyId}'.");
+            throw new InvalidOperationException(
+                $"KMS encryption failed for purpose '{purpose}' using key '{keyId}'."
+            );
         }
 
         return ciphertext;
     }
 
-    public async Task<byte[]?> DecryptAsync(byte[] ciphertext, string purpose, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> DecryptAsync(
+        byte[] ciphertext,
+        string purpose,
+        CancellationToken cancellationToken = default
+    )
     {
         if (ciphertext.Length == 0)
         {
@@ -61,20 +71,36 @@ public sealed class KmsEncryptionService(
         return plaintext;
     }
 
-    public async Task<string> EncryptToBase64Async(string plaintext, string purpose, CancellationToken cancellationToken = default)
+    public async Task<string> EncryptToBase64Async(
+        string plaintext,
+        string purpose,
+        CancellationToken cancellationToken = default
+    )
     {
-        var ciphertext = await EncryptAsync(Encoding.UTF8.GetBytes(plaintext), purpose, cancellationToken);
+        var ciphertext = await EncryptAsync(
+            Encoding.UTF8.GetBytes(plaintext),
+            purpose,
+            cancellationToken
+        );
         return Convert.ToBase64String(ciphertext);
     }
 
-    public async Task<string?> DecryptFromBase64Async(string ciphertextBase64, string purpose, CancellationToken cancellationToken = default)
+    public async Task<string?> DecryptFromBase64Async(
+        string ciphertextBase64,
+        string purpose,
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrWhiteSpace(ciphertextBase64))
         {
             return null;
         }
 
-        var plaintext = await DecryptAsync(Convert.FromBase64String(ciphertextBase64), purpose, cancellationToken);
+        var plaintext = await DecryptAsync(
+            Convert.FromBase64String(ciphertextBase64),
+            purpose,
+            cancellationToken
+        );
         return plaintext is null ? null : Encoding.UTF8.GetString(plaintext);
     }
 }

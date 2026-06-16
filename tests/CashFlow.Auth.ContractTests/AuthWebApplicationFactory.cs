@@ -10,31 +10,50 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
     {
         AuthWebApplicationFactory.IsolateFromLocalStackEnvironment();
 
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Development");
 
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.Sources.Clear();
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+        builder.ConfigureAppConfiguration(
+            (_, config) =>
             {
-                ["Cognito:Enabled"] = "false",
-                ["Cognito:UserPoolId"] = string.Empty,
-                ["Cognito:ClientId"] = string.Empty,
-                ["Cognito:ServiceUrl"] = string.Empty,
-                ["Cognito:RequireMfa"] = "true",
-                ["Cognito:OAuth:Enabled"] = "true",
-                ["LocalAuth:MfaCode"] = "123456",
-                ["CloudWatch:Enabled"] = "false",
-                ["SecretsManager:PreferConfiguration"] = "true",
-                ["SecretsManager:ServiceUrl"] = string.Empty,
-                ["Kms:ServiceUrl"] = string.Empty,
-                ["OTEL_EXPORTER_OTLP_ENDPOINT"] = string.Empty,
-                ["Jwt:Issuer"] = "CashFlow.Auth.Api",
-                ["Jwt:Audience"] = "CashFlow.Web",
-                ["Jwt:SigningKey"] = "dev-only-signing-key-change-me-1234567890",
-                ["Secrets:Auth/JwtSigningKey"] = "dev-only-signing-key-change-me-1234567890"
-            });
-        });
+                config.Sources.Clear();
+                config.AddInMemoryCollection(
+                    new Dictionary<string, string?>
+                    {
+                        ["Observability:PrometheusEnabled"] = "false",
+                        ["Cognito:Enabled"] = "false",
+                        ["Cognito:UserPoolId"] = string.Empty,
+                        ["Cognito:ClientId"] = string.Empty,
+                        ["Cognito:ServiceUrl"] = string.Empty,
+                        ["Cognito:RequireMfa"] = "true",
+                        ["Cognito:OAuth:Enabled"] = "true",
+                        ["LocalAuth:MfaCode"] = "123456",
+                        ["LocalAuth:MfaChallengeTtlMinutes"] = "5",
+                        ["LocalAuth:SeedAdminEmail"] = "admin@cashflow.local",
+                        ["LocalAuth:SeedAdminPassword"] = "Pass@word1",
+                        ["LocalAuth:SeedAdminUserId"] = "b2f02e39-71d0-4d73-96df-f8626776f2a4",
+                        ["LocalAuth:SeedAdminDisplayName"] = "Cash Flow Admin",
+                        ["LocalAuth:DefaultUserPassword"] = "Pass@word1",
+                        ["CloudWatch:Enabled"] = "false",
+                        ["SecretsManager:PreferConfiguration"] = "true",
+                        ["SecretsManager:ServiceUrl"] = string.Empty,
+                        ["SecretsManager:Prefix"] = "cashflow/",
+                        ["Kms:ServiceUrl"] = string.Empty,
+                        ["AWS:Region"] = "us-east-1",
+                        ["AWS:AccessKey"] = "test",
+                        ["AWS:SecretKey"] = "test",
+                        ["OTEL_EXPORTER_OTLP_ENDPOINT"] = string.Empty,
+                        ["Jwt:Issuer"] = "CashFlow.Auth.Api",
+                        ["Jwt:Audience"] = "CashFlow.Web",
+                        ["Jwt:SigningKey"] = "dev-only-signing-key-change-me-1234567890",
+                        ["Jwt:ExpirationMinutes"] = "60",
+                        ["Jwt:RefreshTokenExpirationDays"] = "7",
+                        ["Jwt:ClockSkewSeconds"] = "30",
+                        ["Secrets:Auth/JwtSigningKey"] =
+                            "dev-only-signing-key-change-me-1234567890",
+                    }
+                );
+            }
+        );
     }
 
     internal static void IsolateFromLocalStackEnvironment()

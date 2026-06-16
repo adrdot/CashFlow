@@ -1,4 +1,4 @@
-using AspireApp1.ServiceDefaults.Security;
+using Aspire.CashFlow.ServiceDefaults.Security;
 using CashFlow.Web.Components;
 using CashFlow.Web.Configuration;
 using CashFlow.Web.Services;
@@ -6,27 +6,41 @@ using CashFlow.Web.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.Services.Configure<DemoAccountOptions>(builder.Configuration.GetSection(DemoAccountOptions.SectionName));
-builder.Services.Configure<AuthSessionOptions>(builder.Configuration.GetSection(AuthSessionOptions.SectionName));
-builder.Services.Configure<CognitoOAuthOptions>(builder.Configuration.GetSection(CognitoOAuthOptions.SectionName));
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.Configure<DemoAccountOptions>(
+    builder.Configuration.GetSection(DemoAccountOptions.SectionName)
+);
+builder.Services.Configure<AuthSessionOptions>(
+    builder.Configuration.GetSection(AuthSessionOptions.SectionName)
+);
+builder.Services.Configure<CognitoOAuthOptions>(
+    builder.Configuration.GetSection(CognitoOAuthOptions.SectionName)
+);
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
-var authApiBaseAddress = builder.Configuration["AuthApi:BaseAddress"] ?? "https+http://auth-api";
-var reportingApiBaseAddress = builder.Configuration["ReportingApi:BaseAddress"] ?? "https+http://reporting-api";
-var transactionsApiBaseAddress = builder.Configuration["TransactionsApi:BaseAddress"] ?? "https+http://transactions-api";
+var authApiBaseAddress =
+    builder.Configuration["AuthApi:BaseAddress"]
+    ?? throw new InvalidOperationException("AuthApi:BaseAddress is required.");
+var reportingApiBaseAddress =
+    builder.Configuration["ReportingApi:BaseAddress"]
+    ?? throw new InvalidOperationException("ReportingApi:BaseAddress is required.");
+var transactionsApiBaseAddress =
+    builder.Configuration["TransactionsApi:BaseAddress"]
+    ?? throw new InvalidOperationException("TransactionsApi:BaseAddress is required.");
 
-builder.Services.AddHttpClient<AuthApiClient>(client =>
+builder
+    .Services.AddHttpClient<AuthApiClient>(client =>
     {
         client.BaseAddress = new Uri(authApiBaseAddress);
     })
     .AddServiceDiscovery();
-builder.Services.AddHttpClient<ReportingApiClient>(client =>
+builder
+    .Services.AddHttpClient<ReportingApiClient>(client =>
     {
         client.BaseAddress = new Uri(reportingApiBaseAddress);
     })
     .AddServiceDiscovery();
-builder.Services.AddHttpClient<TransactionsApiClient>(client =>
+builder
+    .Services.AddHttpClient<TransactionsApiClient>(client =>
     {
         client.BaseAddress = new Uri(transactionsApiBaseAddress);
     })
@@ -51,8 +65,7 @@ app.UseCashFlowSecurity();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.MapDefaultEndpoints();
 
 app.Run();

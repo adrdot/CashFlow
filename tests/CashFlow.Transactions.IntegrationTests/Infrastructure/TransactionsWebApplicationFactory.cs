@@ -1,6 +1,7 @@
-using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Infrastructure.EventStore;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
 using CashFlow.Transactions.Infrastructure.Persistence;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -14,12 +15,16 @@ public enum TransactionsTestMode
 {
     InMemoryRepository,
     EventStorePersistence,
-    FailingEventStore
+    FailingEventStore,
 }
 
-public sealed class TransactionsWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class TransactionsWebApplicationFactory
+    : WebApplicationFactory<Program>,
+        IAsyncLifetime
 {
-    public TransactionsWebApplicationFactory(TransactionsTestMode mode = TransactionsTestMode.InMemoryRepository)
+    public TransactionsWebApplicationFactory(
+        TransactionsTestMode mode = TransactionsTestMode.InMemoryRepository
+    )
     {
         Mode = mode;
     }
@@ -30,28 +35,41 @@ public sealed class TransactionsWebApplicationFactory : WebApplicationFactory<Pr
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        TransactionsTestEnvironment.IsolateFromAspireEnvironment();
 
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+        builder.UseEnvironment("Development");
+
+        builder.ConfigureAppConfiguration(
+            (_, config) =>
             {
-                ["EventStore:HttpEndpoint"] = Mode == TransactionsTestMode.InMemoryRepository
-                    ? string.Empty
-                    : "http://127.0.0.1:2113",
-                ["Messaging:Enabled"] = "false",
-                ["Cognito:Enabled"] = "false",
-                ["Cognito:UserPoolId"] = "",
-                ["Cognito:ClientId"] = "",
-                ["Cognito:ServiceUrl"] = "",
-                ["Jwt:Issuer"] = TestJwtTokenHelper.DefaultIssuer,
-                ["Jwt:Audience"] = TestJwtTokenHelper.DefaultAudience,
-                ["Jwt:SigningKey"] = TestJwtTokenHelper.DefaultSigningKey,
-                ["Security:RateLimitingEnabled"] = "false"
-            });
-        });
+                config.Sources.Clear();
+                config.AddInMemoryCollection(
+                    new Dictionary<string, string?>
+                    {
+                        ["Observability:PrometheusEnabled"] = "false",
+                        ["EventStore:HttpEndpoint"] =
+                            Mode == TransactionsTestMode.InMemoryRepository
+                                ? string.Empty
+                                : "http://127.0.0.1:2113",
+                        ["Messaging:Enabled"] = "false",
+                        ["Cognito:Enabled"] = "false",
+                        ["Cognito:UserPoolId"] = "",
+                        ["Cognito:ClientId"] = "",
+                        ["Cognito:ServiceUrl"] = "",
+                        ["Jwt:Issuer"] = TestJwtTokenHelper.DefaultIssuer,
+                        ["Jwt:Audience"] = TestJwtTokenHelper.DefaultAudience,
+                        ["Jwt:SigningKey"] = TestJwtTokenHelper.DefaultSigningKey,
+                        ["Security:RateLimitingEnabled"] = "false",
+                    }
+                );
+            }
+        );
 
-        if (Mode is TransactionsTestMode.EventStorePersistence or TransactionsTestMode.FailingEventStore)
+        if (
+            Mode
+            is TransactionsTestMode.EventStorePersistence
+                or TransactionsTestMode.FailingEventStore
+        )
         {
             builder.ConfigureTestServices(ReplaceEventStoreServices);
         }

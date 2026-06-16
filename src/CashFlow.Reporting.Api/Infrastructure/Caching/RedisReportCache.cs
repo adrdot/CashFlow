@@ -1,6 +1,6 @@
 using System.Text.Json;
-using CashFlow.Reporting.Application.Abstractions;
 using CashFlow.Reporting.Application.Contracts;
+using CashFlow.Reporting.Infrastructure.Caching.Abstractions;
 using CashFlow.Reporting.Infrastructure.Observability;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
@@ -12,34 +12,36 @@ public sealed class NullReportCache : IReportCache
     public Task<DailyReportResult?> GetAsync(
         string userId,
         DateOnly reportDate,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult<DailyReportResult?>(null);
+        CancellationToken cancellationToken = default
+    ) => Task.FromResult<DailyReportResult?>(null);
 
     public Task SetAsync(
         string userId,
         DateOnly reportDate,
         DailyReportResult report,
-        CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+        CancellationToken cancellationToken = default
+    ) => Task.CompletedTask;
 
     public Task InvalidateAsync(
         string userId,
         DateOnly reportDate,
-        CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+        CancellationToken cancellationToken = default
+    ) => Task.CompletedTask;
 }
 
 public sealed class RedisReportCache(
     IDistributedCache cache,
     IOptions<ReportingCacheOptions> cacheOptions,
-    ReportingMetrics metrics) : IReportCache
+    ReportingMetrics metrics
+) : IReportCache
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<DailyReportResult?> GetAsync(
         string userId,
         DateOnly reportDate,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var payload = await cache.GetStringAsync(BuildKey(userId, reportDate), cancellationToken);
         if (string.IsNullOrWhiteSpace(payload))
@@ -56,21 +58,28 @@ public sealed class RedisReportCache(
         string userId,
         DateOnly reportDate,
         DailyReportResult report,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var payload = JsonSerializer.Serialize(report with { FromCache = false }, JsonOptions);
         var options = new DistributedCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = ResolveTtl(reportDate, cacheOptions.Value)
+            AbsoluteExpirationRelativeToNow = ResolveTtl(reportDate, cacheOptions.Value),
         };
 
-        await cache.SetStringAsync(BuildKey(userId, reportDate), payload, options, cancellationToken);
+        await cache.SetStringAsync(
+            BuildKey(userId, reportDate),
+            payload,
+            options,
+            cancellationToken
+        );
     }
 
     public async Task InvalidateAsync(
         string userId,
         DateOnly reportDate,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         await cache.RemoveAsync(BuildKey(userId, reportDate), cancellationToken);
         metrics.IncrementCacheInvalidation();

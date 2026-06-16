@@ -5,14 +5,16 @@ namespace CashFlow.Reporting.Application.UseCases;
 
 internal static class ReportCacheSingleFlight
 {
-    private static readonly ConcurrentDictionary<string, Task<DailyReportResult>> InFlight =
-        new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Task<DailyReportResult>> InFlight = new(
+        StringComparer.Ordinal
+    );
 
     public static Task<DailyReportResult> GetOrLoadAsync(
         string userId,
         DateOnly reportDate,
         Func<CancellationToken, Task<DailyReportResult>> factory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var key = BuildKey(userId, reportDate);
 
@@ -34,7 +36,8 @@ internal static class ReportCacheSingleFlight
     private static async Task<DailyReportResult> RunLoadAsync(
         string key,
         Func<CancellationToken, Task<DailyReportResult>> factory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -48,7 +51,8 @@ internal static class ReportCacheSingleFlight
 
     private static async Task<DailyReportResult> AwaitExistingAsync(
         Task<DailyReportResult> existing,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (cancellationToken.CanBeCanceled)
         {

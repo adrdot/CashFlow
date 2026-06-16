@@ -10,13 +10,14 @@ public sealed class TransactionsApiClient(HttpClient httpClient)
     public async Task<CreateTransactionResult> CreateAsync(
         CreateTransactionRequest request,
         string token,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/transactions/")
             {
-                Content = JsonContent.Create(request)
+                Content = JsonContent.Create(request),
             };
 
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -24,20 +25,31 @@ public sealed class TransactionsApiClient(HttpClient httpClient)
             using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<CreateTransactionResult>(cancellationToken: cancellationToken)
-                    ?? CreateTransactionResult.Failure("Transaction service returned an empty response.");
+                return await response.Content.ReadFromJsonAsync<CreateTransactionResult>(
+                        cancellationToken: cancellationToken
+                    )
+                    ?? CreateTransactionResult.Failure(
+                        "Transaction service returned an empty response."
+                    );
             }
 
             ProblemDetails? problem = null;
             if (response.Content.Headers.ContentLength > 0)
             {
-                problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken: cancellationToken);
+                problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+                    cancellationToken: cancellationToken
+                );
             }
-            return CreateTransactionResult.Failure(problem?.Detail ?? $"Transaction could not be recorded. Status: {response.StatusCode}");
+            return CreateTransactionResult.Failure(
+                problem?.Detail
+                    ?? $"Transaction could not be recorded. Status: {response.StatusCode}"
+            );
         }
         catch (HttpRequestException)
         {
-            return CreateTransactionResult.Failure("Transaction service is unavailable. Try again later.");
+            return CreateTransactionResult.Failure(
+                "Transaction service is unavailable. Try again later."
+            );
         }
     }
 }

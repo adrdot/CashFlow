@@ -18,7 +18,7 @@ internal static class LoadTestJwtHelper
         {
             new(ClaimTypes.NameIdentifier, userId),
             new(ClaimTypes.Email, userId),
-            new("sub", userId)
+            new("sub", userId),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(DefaultSigningKey));
@@ -29,7 +29,8 @@ internal static class LoadTestJwtHelper
             audience: DefaultAudience,
             claims: claims,
             expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: credentials);
+            signingCredentials: credentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

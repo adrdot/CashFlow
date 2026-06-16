@@ -3,7 +3,7 @@ namespace CashFlow.Transactions.Domain.ValueObjects;
 public enum TransactionType
 {
     Debit = 1,
-    Credit = 2
+    Credit = 2,
 }
 
 public static class TransactionTypeParser

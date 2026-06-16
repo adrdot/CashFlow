@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AspireApp1.ServiceDefaults\AspireApp1.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Aspire.CashFlow.ServiceDefaults\Aspire.CashFlow.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AspireApp1.ServiceDefaults\AspireApp1.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Aspire.CashFlow.ServiceDefaults\Aspire.CashFlow.ServiceDefaults.csproj" />
     <ProjectReference Include="..\CashFlow.Reporting.Api\CashFlow.Reporting.Api.csproj" />
   </ItemGroup>
 

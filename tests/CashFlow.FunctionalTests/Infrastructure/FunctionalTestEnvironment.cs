@@ -5,8 +5,9 @@ internal static class FunctionalTestEnvironment
     private static readonly string? OriginalReportingConnection =
         Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db");
 
-    private static readonly string? OriginalCognitoEnabled =
-        Environment.GetEnvironmentVariable("Cognito__Enabled");
+    private static readonly string? OriginalCognitoEnabled = Environment.GetEnvironmentVariable(
+        "Cognito__Enabled"
+    );
 
     public static void IsolateFromLocalStack()
     {
@@ -19,7 +20,10 @@ internal static class FunctionalTestEnvironment
 
     public static void Restore()
     {
-        Environment.SetEnvironmentVariable("ConnectionStrings__reporting-db", OriginalReportingConnection);
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__reporting-db",
+            OriginalReportingConnection
+        );
         Environment.SetEnvironmentVariable("Cognito__Enabled", OriginalCognitoEnabled);
     }
 }

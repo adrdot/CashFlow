@@ -1,18 +1,29 @@
-using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Application.Contracts;
+using CashFlow.Auth.Infrastructure.Configuration;
 using CashFlow.Auth.Domain.Entities;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace CashFlow.Auth.Infrastructure.Identity;
 
-public sealed class InMemoryUserAdministrationService(InMemoryUserAccountStore userAccountStore) : IUserAdministrationService
+public sealed class InMemoryUserAdministrationService(
+    InMemoryUserAccountStore userAccountStore,
+    IOptions<LocalAuthOptions> localAuthOptions
+) : IUserAdministrationService
 {
-    public async Task<UserSummary?> FindByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<UserSummary?> FindByEmailAsync(
+        string email,
+        CancellationToken cancellationToken = default
+    )
     {
         var userAccount = await userAccountStore.FindByEmailAsync(email, cancellationToken);
         return userAccount is null ? null : Map(userAccount);
     }
 
-    public async Task<UserSummary> UpsertUserAsync(UserSummary user, CancellationToken cancellationToken = default)
+    public async Task<UserSummary> UpsertUserAsync(
+        UserSummary user,
+        CancellationToken cancellationToken = default
+    )
     {
         var existing = await userAccountStore.FindByEmailAsync(user.Email, cancellationToken);
         var userAccount = new UserAccount
@@ -20,13 +31,14 @@ public sealed class InMemoryUserAdministrationService(InMemoryUserAccountStore u
             Id = existing?.Id ?? (user.Id == Guid.Empty ? Guid.NewGuid() : user.Id),
             Email = user.Email,
             DisplayName = user.DisplayName,
-            IsActive = user.IsActive
+            IsActive = user.IsActive,
         };
 
         var storedUser = await userAccountStore.UpsertAsync(
             userAccount,
-            password: existing is null ? "Pass@word1" : null,
-            cancellationToken);
+            password: existing is null ? localAuthOptions.Value.DefaultUserPassword : null,
+            cancellationToken
+        );
 
         return new UserSummary
         {
@@ -36,11 +48,14 @@ public sealed class InMemoryUserAdministrationService(InMemoryUserAccountStore u
             IsActive = storedUser.IsActive,
             MfaEnabled = user.MfaEnabled,
             Groups = user.Groups,
-            AuthenticationSource = "InMemoryFallback"
+            AuthenticationSource = "InMemoryFallback",
         };
     }
 
-    public Task<UserAccessAssignment> AssignAccessAsync(UserAccessAssignment assignment, CancellationToken cancellationToken = default)
+    public Task<UserAccessAssignment> AssignAccessAsync(
+        UserAccessAssignment assignment,
+        CancellationToken cancellationToken = default
+    )
     {
         return Task.FromResult(assignment);
     }
@@ -58,7 +73,7 @@ public sealed class InMemoryUserAdministrationService(InMemoryUserAccountStore u
             Email = userAccount.Email,
             DisplayName = userAccount.DisplayName,
             IsActive = userAccount.IsActive,
-            AuthenticationSource = "InMemoryFallback"
+            AuthenticationSource = "InMemoryFallback",
         };
     }
 }

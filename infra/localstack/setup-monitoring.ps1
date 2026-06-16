@@ -1,3 +1,7 @@
+# LocalStack CloudWatch bootstrap (log groups + placeholder alarms).
+# Canonical metrics/alerts: Prometheus — see docs/observability-prometheus-canonical.md.
+# Custom namespaces CashFlow/* below are NOT published by the apps (logs only).
+
 param(
     [string]$Endpoint = "http://localhost:4566",
     [string]$InternalEndpoint = "http://cashflow-localstack:4566",

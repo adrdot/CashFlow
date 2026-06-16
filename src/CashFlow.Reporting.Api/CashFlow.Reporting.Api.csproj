@@ -30,7 +30,7 @@
 
   <ItemGroup>
 
-    <PackageReference Include="AWSSDK.SQS" Version="3.7.400.57" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.3.5" />
 
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
 
@@ -58,7 +58,7 @@
 
   <ItemGroup>
 
-    <ProjectReference Include="..\..\AspireApp1.ServiceDefaults\AspireApp1.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Aspire.CashFlow.ServiceDefaults\Aspire.CashFlow.ServiceDefaults.csproj" />
 
   </ItemGroup>
 

@@ -1,5 +1,4 @@
 using BenchmarkDotNet.Attributes;
-using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Application.UseCases;
 using CashFlow.Transactions.Domain.Entities;
@@ -22,11 +21,11 @@ public class CreateTransactionHandlerBenchmarks
             Type = "Credit",
             Amount = 199.99m,
             Description = "Benchmark salary deposit",
-            TransactionDate = new DateOnly(2026, 6, 14)
+            TransactionDate = new DateOnly(2026, 6, 14),
         };
     }
 
     [Benchmark(Description = "CreateAsync valid debit/credit request")]
-    public async Task<CreateTransactionResult> CreateAsync_ValidRequest()
-        => await handler.CreateAsync(request, "benchmark-user@cashflow.local");
+    public async Task<CreateTransactionResult> CreateAsync_ValidRequest() =>
+        await handler.CreateAsync(request, "benchmark-user@cashflow.local");
 }

@@ -7,7 +7,7 @@ Baseline alinhada ao spec `002-feature-cash-flow`. As metas de throughput da con
 | Pilar | Objetivo | Sinais primários |
 |-------|----------|------------------|
 | **Performance** | Escritas rápidas e previsíveis | `transactions.persistence.duration`, `transactions.end_to_end.duration` |
-| **Disponibilidade** | API acessível; poucos erros de servidor | `transactions.requests.total`, health `/ready` |
+| **Disponibilidade** | API acessível; poucos erros de servidor | `http_server_request_duration_seconds`, health `/ready` |
 | **Confiabilidade** | Escritas duráveis; mensageria se recupera | `transactions.persistence.failures`, contadores de publish |
 
 ## Indicadores de nível de serviço (SLI)
@@ -16,19 +16,19 @@ Baseline alinhada ao spec `002-feature-cash-flow`. As metas de throughput da con
 |-----|------|-----------|---------|
 | Gravação ponta a ponta | **95%** &lt; **5 s** | `EndToEndRecordingPercentile`, `EndToEndRecordingSeconds` | `transactions.end_to_end.duration` |
 | Latência de persistência | **p95** &lt; **200 ms** | `MaxPersistenceLatencyMs`, `PersistenceLatencyPercentile` | `transactions.persistence.duration{outcome="success"}` |
-| Erros HTTP de servidor | **5xx** &lt; **1%** | `MaxServerErrorPercent` | `transactions.requests.total{status_class="5xx"}` / total |
+| Erros HTTP de servidor | **5xx** &lt; **1%** | `MaxServerErrorPercent` | `http_server_request_duration_seconds{http_response_status_code=~"5.."}` / total |
 | Falhas de publish SNS | **0** sustentado &gt; **5 min** | `PublishFailureSustainedMinutes` | `transactions.events.publish_failures` |
 | Replay idempotente | Mesma `Idempotency-Key` → mesma transação | — | Testes de integração + `transactions.idempotent_replays` |
 
 > **Nota:** erros de validação do cliente (`4xx`) ficam **fora** do SLI de erro de servidor.
 
-Constantes em `TransactionSlo.cs`. Nomes de alertas e helpers PromQL em `TransactionAlertCatalog.cs`.
+Thresholds: `docs/transactions-slo.md` (tabela acima), `TransactionLoadTestSloGates.cs` (benchmarks). Alertas: `infra/observability/prometheus/alerts/transactions.yml`.
 
 ## Catálogo de métricas customizadas
 
 | Métrica | Tipo | Tags | Pilar |
 |---------|------|------|-------|
-| `transactions.requests.total` | Counter | `method`, `route`, `status_class` | Disponibilidade |
+| `http_server_request_duration_seconds` | Histogram (OTEL) | `http_response_status_code`, … | Disponibilidade |
 | `transactions.created` | Counter | `type` | Confiabilidade |
 | `transactions.persistence.failures` | Counter | `stage` | Confiabilidade |
 | `transactions.idempotent_replays` | Counter | — | Confiabilidade |
@@ -115,6 +115,6 @@ Defaults do benchmark: `TransactionLoadTestDefaults.cs` (sondagem de capacidade,
 | `TransactionsServerErrorRateHigh` | painel 5xx + traces | Dependências `/ready` |
 | `TransactionsEndToEndP95High` | duração publish | Corrigir SNS; subscription lag |
 | `MessagingPipelineRelayLagSustained` | `transactions.relay.subscription_lag` | Escalar relay; SNS / parked |
-| `MessagingPipelineSqsBacklogSustained` | `reporting.sqs.visible_messages` | Escalar consumer Reporting; erros projeção |
+| `MessagingPipelineSqsBacklogSustained` | `aws_sqs_approximate_number_of_messages_visible_average` | Escalar consumer Reporting; erros projeção |
 | `MessagingPipelineThroughputMismatch` | painel throughput | Ver `messaging-pipeline-observability.md` |
 | Grafana vazio após teste de carga | targets Prometheus | `transactions-api` UP; HTTP `:5100` ou HTTPS `:7093` |

@@ -6,11 +6,12 @@ internal static class EventStoreClientFactory
 {
     public static EventStorePersistentSubscriptionsClient Create(EventStoreOptions options)
     {
-        var connectionString = string.IsNullOrWhiteSpace(options.ConnectionString)
-            ? "esdb://127.0.0.1:2113?tls=false"
-            : options.ConnectionString;
+        if (string.IsNullOrWhiteSpace(options.ConnectionString))
+        {
+            throw new InvalidOperationException("EventStore:ConnectionString is required.");
+        }
 
-        var settings = EventStoreClientSettings.Create(connectionString);
+        var settings = EventStoreClientSettings.Create(options.ConnectionString);
         return new EventStorePersistentSubscriptionsClient(settings);
     }
 }

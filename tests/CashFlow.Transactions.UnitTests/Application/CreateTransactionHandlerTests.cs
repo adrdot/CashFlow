@@ -1,6 +1,6 @@
-using CashFlow.Transactions.Application.Abstractions;
 using CashFlow.Transactions.Application.Contracts;
 using CashFlow.Transactions.Application.UseCases;
+using CashFlow.Transactions.Infrastructure.Persistence.Abstractions;
 using CashFlow.Transactions.Domain.Entities;
 
 namespace CashFlow.Transactions.UnitTests.Application;
@@ -15,13 +15,16 @@ public sealed class CreateTransactionHandlerTests
         var repository = new FakeTransactionRepository();
         var handler = new CreateTransactionHandler(repository);
 
-        var result = await handler.CreateAsync(new CreateTransactionRequest
-        {
-            Type = "Credit",
-            Amount = 125.45m,
-            Description = "Salary deposit",
-            TransactionDate = new DateOnly(2026, 6, 12)
-        }, UserId);
+        var result = await handler.CreateAsync(
+            new CreateTransactionRequest
+            {
+                Type = "Credit",
+                Amount = 125.45m,
+                Description = "Salary deposit",
+                TransactionDate = new DateOnly(2026, 6, 12),
+            },
+            UserId
+        );
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Transaction);
@@ -36,13 +39,16 @@ public sealed class CreateTransactionHandlerTests
         var repository = new FakeTransactionRepository();
         var handler = new CreateTransactionHandler(repository);
 
-        var result = await handler.CreateAsync(new CreateTransactionRequest
-        {
-            Type = "Transfer",
-            Amount = 20m,
-            Description = "Invalid type",
-            TransactionDate = new DateOnly(2026, 6, 12)
-        }, UserId);
+        var result = await handler.CreateAsync(
+            new CreateTransactionRequest
+            {
+                Type = "Transfer",
+                Amount = 20m,
+                Description = "Invalid type",
+                TransactionDate = new DateOnly(2026, 6, 12),
+            },
+            UserId
+        );
 
         Assert.False(result.Succeeded);
         Assert.Equal("Transaction type must be Debit or Credit.", result.ErrorMessage);
@@ -55,13 +61,16 @@ public sealed class CreateTransactionHandlerTests
         var repository = new FakeTransactionRepository();
         var handler = new CreateTransactionHandler(repository);
 
-        var result = await handler.CreateAsync(new CreateTransactionRequest
-        {
-            Type = "Debit",
-            Amount = 20m,
-            Description = "Missing user",
-            TransactionDate = new DateOnly(2026, 6, 12)
-        }, string.Empty);
+        var result = await handler.CreateAsync(
+            new CreateTransactionRequest
+            {
+                Type = "Debit",
+                Amount = 20m,
+                Description = "Missing user",
+                TransactionDate = new DateOnly(2026, 6, 12),
+            },
+            string.Empty
+        );
 
         Assert.False(result.Succeeded);
         Assert.Equal("Authenticated user identifier is required.", result.ErrorMessage);
@@ -75,11 +84,14 @@ public sealed class CreateTransactionHandlerTests
             CashFlowTransaction transaction,
             string userId,
             string? idempotencyKey = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
-                return Task.FromResult(PersistenceOutcome.Failure("Authenticated user identifier is required."));
+                return Task.FromResult(
+                    PersistenceOutcome.Failure("Authenticated user identifier is required.")
+                );
             }
 
             StoredTransactions.Add(transaction);

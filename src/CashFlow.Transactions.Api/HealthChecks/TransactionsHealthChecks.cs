@@ -11,7 +11,8 @@ public sealed class EventStoreHealthCheck(IHttpClientFactory httpClientFactory) 
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -30,11 +31,13 @@ public sealed class EventStoreHealthCheck(IHttpClientFactory httpClientFactory) 
 
 public sealed class SnsHealthCheck(
     IAmazonSimpleNotificationService snsClient,
-    IOptions<MessagingOptions> options) : IHealthCheck
+    IOptions<MessagingOptions> options
+) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var settings = options.Value;
         if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.SnsTopicArn))

@@ -1,6 +1,7 @@
 using System.Security.Claims;
-using CashFlow.Reporting.Application.Abstractions;
-using CashFlow.Reporting.Application.Contracts;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
+using CashFlow.Reporting.Application.Abstractions;using CashFlow.Reporting.Application.Contracts;
+using CashFlow.Reporting.Infrastructure.Exports.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CashFlow.Reporting.Api.Endpoints;
@@ -9,18 +10,20 @@ public static class ReportingEndpoints
 {
     public static IEndpointRouteBuilder MapReportingEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/reports")
-            .RequireAuthorization();
+        var group = endpoints.MapGroup("/api/reports").RequireAuthorization();
 
-        group.MapGet("/daily", GetDailyReportAsync)
+        group
+            .MapGet("/daily", GetDailyReportAsync)
             .WithName("GetDailyReport")
             .WithSummary("Returns the consolidated report for a selected day.");
 
-        group.MapGet("/daily/export/csv", ExportDailyReportCsvAsync)
+        group
+            .MapGet("/daily/export/csv", ExportDailyReportCsvAsync)
             .WithName("ExportDailyReportCsv")
             .WithSummary("Exports the consolidated daily report as CSV.");
 
-        group.MapGet("/daily/export/pdf", ExportDailyReportPdfAsync)
+        group
+            .MapGet("/daily/export/pdf", ExportDailyReportPdfAsync)
             .WithName("ExportDailyReportPdf")
             .WithSummary("Exports the consolidated daily report as PDF.");
 
@@ -31,21 +34,26 @@ public static class ReportingEndpoints
         DateOnly? date,
         ClaimsPrincipal user,
         IReportingService reportingService,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var userId = ResolveUserId(user);
+        var userId = user.ResolveCashFlowUserId();
         if (string.IsNullOrWhiteSpace(userId))
         {
             return Results.Problem(
                 title: "Authenticated user is required",
-                statusCode: StatusCodes.Status401Unauthorized);
+                statusCode: StatusCodes.Status401Unauthorized
+            );
         }
 
-        var result = await reportingService.GetDailyReportAsync(new GetDailyReportRequest
-        {
-            UserId = userId,
-            ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today)
-        }, cancellationToken);
+        var result = await reportingService.GetDailyReportAsync(
+            new GetDailyReportRequest
+            {
+                UserId = userId,
+                ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today),
+            },
+            cancellationToken
+        );
 
         return Results.Ok(result);
     }
@@ -54,33 +62,39 @@ public static class ReportingEndpoints
         DateOnly? date,
         ClaimsPrincipal user,
         IReportingService reportingService,
-        IReportExportService exportService,
-        CancellationToken cancellationToken)
+        ICsvReportExporter csvExporter,
+        CancellationToken cancellationToken
+    )
     {
-        var userId = ResolveUserId(user);
+        var userId = user.ResolveCashFlowUserId();
         if (string.IsNullOrWhiteSpace(userId))
         {
             return Results.Problem(
                 title: "Authenticated user is required",
-                statusCode: StatusCodes.Status401Unauthorized);
+                statusCode: StatusCodes.Status401Unauthorized
+            );
         }
 
-        var report = await reportingService.GetDailyReportAsync(new GetDailyReportRequest
-        {
-            UserId = userId,
-            ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today)
-        }, cancellationToken);
+        var report = await reportingService.GetDailyReportAsync(
+            new GetDailyReportRequest
+            {
+                UserId = userId,
+                ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today),
+            },
+            cancellationToken
+        );
 
         try
         {
-            var export = exportService.ExportCsv(report);
+            var export = csvExporter.Export(report);
             return Results.File(export.Content, export.ContentType, export.FileName);
         }
         catch (Exception)
         {
             return Results.Problem(
                 title: "CSV export failed",
-                statusCode: StatusCodes.Status500InternalServerError);
+                statusCode: StatusCodes.Status500InternalServerError
+            );
         }
     }
 
@@ -88,39 +102,39 @@ public static class ReportingEndpoints
         DateOnly? date,
         ClaimsPrincipal user,
         IReportingService reportingService,
-        IReportExportService exportService,
-        CancellationToken cancellationToken)
+        IPdfReportExporter pdfExporter,
+        CancellationToken cancellationToken
+    )
     {
-        var userId = ResolveUserId(user);
+        var userId = user.ResolveCashFlowUserId();
         if (string.IsNullOrWhiteSpace(userId))
         {
             return Results.Problem(
                 title: "Authenticated user is required",
-                statusCode: StatusCodes.Status401Unauthorized);
+                statusCode: StatusCodes.Status401Unauthorized
+            );
         }
 
-        var report = await reportingService.GetDailyReportAsync(new GetDailyReportRequest
-        {
-            UserId = userId,
-            ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today)
-        }, cancellationToken);
+        var report = await reportingService.GetDailyReportAsync(
+            new GetDailyReportRequest
+            {
+                UserId = userId,
+                ReportDate = date ?? DateOnly.FromDateTime(DateTime.Today),
+            },
+            cancellationToken
+        );
 
         try
         {
-            var export = exportService.ExportPdf(report);
+            var export = pdfExporter.Export(report);
             return Results.File(export.Content, export.ContentType, export.FileName);
         }
         catch (Exception)
         {
             return Results.Problem(
                 title: "PDF export failed",
-                statusCode: StatusCodes.Status500InternalServerError);
+                statusCode: StatusCodes.Status500InternalServerError
+            );
         }
     }
-
-    internal static string? ResolveUserId(ClaimsPrincipal user) =>
-        user.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? user.FindFirstValue("sub")
-            ?? user.FindFirstValue(ClaimTypes.Email)
-            ?? user.Identity?.Name;
 }

@@ -161,6 +161,7 @@ Write-Host "  Reporting API: $ReportingUrl"
 Write-Host "  Auth API:      $AuthUrl"
 Write-Host "  Target:        $Rate RPS for ${DurationSeconds}s (max 5% fail, p50 < 200ms, p95 < 2000ms)"
 Write-Host "  Reports dir:   $reportsDir"
+Write-Host "  Note: uses --no-build so the running reporting-api is not recompiled." -ForegroundColor DarkGray
 Write-Host ""
 
 if (-not $SkipPreflight) {

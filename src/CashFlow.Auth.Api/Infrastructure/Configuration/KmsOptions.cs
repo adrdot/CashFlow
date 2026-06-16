@@ -4,16 +4,16 @@ public sealed class KmsOptions
 {
     public const string SectionName = "Kms";
 
-    public string Region { get; init; } = "us-east-1";
+    public string Region { get; init; } = string.Empty;
 
-    public string DefaultKeyId { get; init; } = "alias/cashflow-default";
+    public string DefaultKeyId { get; init; } = string.Empty;
 
-    public string SecretsKeyId { get; init; } = "alias/cashflow-secrets";
+    public string SecretsKeyId { get; init; } = string.Empty;
 
-    public string StorageKeyId { get; init; } = "alias/cashflow-storage";
+    public string StorageKeyId { get; init; } = string.Empty;
 
     /// <summary>
-    /// When set (e.g. LocalStack at http://localhost:4566), the AWS SDK uses this endpoint.
+    /// When set (e.g. LocalStack), the AWS SDK uses this endpoint.
     /// </summary>
     public string? ServiceUrl { get; init; }
 

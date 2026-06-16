@@ -1,6 +1,7 @@
 using Amazon.SecretsManager;
-using Amazon.SecretsManager.Model;
+using Aspire.CashFlow.ServiceDefaults.Aws;
 using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.Extensions.Configuration;
 
 namespace CashFlow.Auth.Infrastructure.Security;
@@ -12,10 +13,20 @@ public static class RuntimeSecretLoader
     public static Dictionary<string, string?> LoadConfigurationOverrides(
         IConfiguration configuration,
         SecretsManagerOptions secretsManagerOptions,
-        ISecretsManagerGateway? secretsManagerGateway = null)
+        AwsOptions awsOptions,
+        ISecretsManagerGateway? secretsManagerGateway = null
+    )
     {
         var mappings = ReadMappings(configuration);
-        if (mappings.Count == 0)
+        var pendingMappings = mappings
+            .Where(mapping =>
+                !string.IsNullOrWhiteSpace(mapping.Key)
+                && !string.IsNullOrWhiteSpace(mapping.Value)
+                && string.IsNullOrWhiteSpace(configuration[mapping.Key])
+            )
+            .ToList();
+
+        if (pendingMappings.Count == 0)
         {
             return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         }
@@ -23,7 +34,10 @@ public static class RuntimeSecretLoader
         IAmazonSecretsManager? ownedClient = null;
         if (secretsManagerGateway is null)
         {
-            ownedClient = AmazonSecretsManagerClientFactory.Create(secretsManagerOptions);
+            ownedClient = AmazonSecretsManagerClientFactory.Create(
+                secretsManagerOptions,
+                awsOptions
+            );
             secretsManagerGateway = new AwsSecretsManagerGateway(ownedClient);
         }
 
@@ -31,23 +45,14 @@ public static class RuntimeSecretLoader
         {
             var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var (configurationKey, secretName) in mappings)
+            foreach (var (configurationKey, secretName) in pendingMappings)
             {
-                if (string.IsNullOrWhiteSpace(configurationKey) || string.IsNullOrWhiteSpace(secretName))
-                {
-                    continue;
-                }
-
-                if (!string.IsNullOrWhiteSpace(configuration[configurationKey]))
-                {
-                    continue;
-                }
-
                 var secretValue = TryGetSecretValue(
                     secretsManagerGateway,
                     secretsManagerOptions,
                     secretName,
-                    configuration);
+                    configuration
+                );
 
                 if (!string.IsNullOrWhiteSpace(secretValue))
                 {
@@ -80,7 +85,8 @@ public static class RuntimeSecretLoader
     private static void FlattenSection(
         IConfigurationSection section,
         string prefix,
-        Dictionary<string, string> mappings)
+        Dictionary<string, string> mappings
+    )
     {
         if (!string.IsNullOrWhiteSpace(section.Value))
         {
@@ -99,11 +105,16 @@ public static class RuntimeSecretLoader
         ISecretsManagerGateway secretsManagerGateway,
         SecretsManagerOptions secretsManagerOptions,
         string secretName,
-        IConfiguration configuration)
+        IConfiguration configuration
+    )
     {
         if (secretsManagerOptions.PreferConfiguration)
         {
-            var configuredValue = ReadConfiguredSecret(configuration, secretsManagerOptions, secretName);
+            var configuredValue = ReadConfiguredSecret(
+                configuration,
+                secretsManagerOptions,
+                secretName
+            );
             if (!string.IsNullOrWhiteSpace(configuredValue))
             {
                 return configuredValue;
@@ -111,7 +122,10 @@ public static class RuntimeSecretLoader
         }
 
         var secretId = BuildSecretId(secretsManagerOptions, secretName);
-        var secretValue = secretsManagerGateway.GetSecretStringAsync(secretId).GetAwaiter().GetResult();
+        var secretValue = secretsManagerGateway
+            .GetSecretStringAsync(secretId)
+            .GetAwaiter()
+            .GetResult();
         if (!string.IsNullOrWhiteSpace(secretValue))
         {
             return secretValue;
@@ -123,14 +137,18 @@ public static class RuntimeSecretLoader
     private static string? ReadConfiguredSecret(
         IConfiguration configuration,
         SecretsManagerOptions secretsManagerOptions,
-        string secretName)
+        string secretName
+    )
     {
         var normalizedName = secretName.Replace(':', '/');
         var fullKey = $"{secretsManagerOptions.Prefix.TrimEnd('/')}/{normalizedName}";
         return configuration[$"Secrets:{secretName}"] ?? configuration[fullKey];
     }
 
-    private static string BuildSecretId(SecretsManagerOptions secretsManagerOptions, string secretName)
+    private static string BuildSecretId(
+        SecretsManagerOptions secretsManagerOptions,
+        string secretName
+    )
     {
         var normalizedName = secretName.Replace(':', '/').Trim('/');
         var prefix = secretsManagerOptions.Prefix.TrimEnd('/');

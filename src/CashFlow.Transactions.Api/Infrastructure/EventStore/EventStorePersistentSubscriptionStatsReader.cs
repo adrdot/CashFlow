@@ -1,20 +1,33 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CashFlow.Transactions.Infrastructure.EventStore;
 
 public sealed class EventStorePersistentSubscriptionStatsReader(
     IHttpClientFactory httpClientFactory,
-    ILogger<EventStorePersistentSubscriptionStatsReader> logger)
+    IOptions<EventStoreOptions> eventStoreOptions,
+    ILogger<EventStorePersistentSubscriptionStatsReader> logger
+)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<PersistentSubscriptionStats?> TryGetToAllStatsAsync(
         string groupName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
+        var streamName = eventStoreOptions.Value.PersistentSubscriptionStream;
+        if (string.IsNullOrWhiteSpace(streamName))
+        {
+            throw new InvalidOperationException(
+                "EventStore:PersistentSubscriptionStream is required."
+            );
+        }
+
         var httpClient = httpClientFactory.CreateClient("eventstore");
-        var requestUri = $"subscriptions/%24all/{Uri.EscapeDataString(groupName)}/info";
+        var requestUri =
+            $"subscriptions/{Uri.EscapeDataString(streamName)}/{Uri.EscapeDataString(groupName)}/info";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -25,7 +38,8 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
             logger.LogDebug(
                 "EventStore subscription stats unavailable for {GroupName} ({StatusCode}).",
                 groupName,
-                (int)response.StatusCode);
+                (int)response.StatusCode
+            );
             return null;
         }
 
@@ -42,9 +56,11 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
         {
             foreach (var entry in root.EnumerateArray())
             {
-                if (TryGetString(entry, "groupName") is { } name
+                if (
+                    TryGetString(entry, "groupName") is { } name
                     && string.Equals(name, groupName, StringComparison.Ordinal)
-                    && TryReadStats(entry, out var arrayStats))
+                    && TryReadStats(entry, out var arrayStats)
+                )
                 {
                     return arrayStats;
                 }
@@ -59,8 +75,10 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
     private static bool TryReadStats(JsonElement element, out PersistentSubscriptionStats stats)
     {
         stats = default!;
-        if (!TryGetLong(element, "lastKnownEventNumber", out var lastKnown)
-            || !TryGetLong(element, "lastProcessedEventNumber", out var lastProcessed))
+        if (
+            !TryGetLong(element, "lastKnownEventNumber", out var lastKnown)
+            || !TryGetLong(element, "lastProcessedEventNumber", out var lastProcessed)
+        )
         {
             return false;
         }
@@ -71,7 +89,8 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
         stats = new PersistentSubscriptionStats(
             Math.Max(0, lastKnown - lastProcessed),
             inFlight,
-            parked);
+            parked
+        );
 
         return true;
     }
@@ -103,13 +122,18 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
                 continue;
             }
 
-            if (property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt64(out value))
+            if (
+                property.Value.ValueKind == JsonValueKind.Number
+                && property.Value.TryGetInt64(out value)
+            )
             {
                 return true;
             }
 
-            if (property.Value.ValueKind == JsonValueKind.String
-                && long.TryParse(property.Value.GetString(), out value))
+            if (
+                property.Value.ValueKind == JsonValueKind.String
+                && long.TryParse(property.Value.GetString(), out value)
+            )
             {
                 return true;
             }
@@ -122,4 +146,5 @@ public sealed class EventStorePersistentSubscriptionStatsReader(
 public readonly record struct PersistentSubscriptionStats(
     long LagEvents,
     long InFlightMessages,
-    long ParkedMessages);
+    long ParkedMessages
+);

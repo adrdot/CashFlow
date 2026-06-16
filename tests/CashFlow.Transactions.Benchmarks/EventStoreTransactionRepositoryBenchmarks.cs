@@ -1,12 +1,13 @@
+using System.Diagnostics.Metrics;
 using BenchmarkDotNet.Attributes;
 using CashFlow.Transactions.Domain.Entities;
 using CashFlow.Transactions.Domain.ValueObjects;
 using CashFlow.Transactions.Infrastructure.EventStore;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
 using CashFlow.Transactions.Infrastructure.Observability;
 using CashFlow.Transactions.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics.Metrics;
 
 namespace CashFlow.Transactions.Benchmarks;
 
@@ -28,13 +29,15 @@ public class EventStoreTransactionRepositoryBenchmarks : IDisposable
         using var provider = services.BuildServiceProvider();
         var metrics = new TransactionMetrics(
             provider.GetRequiredService<IMeterFactory>(),
-            provider.GetRequiredService<RelaySubscriptionStats>());
+            provider.GetRequiredService<RelaySubscriptionStats>()
+        );
 
         repository = new EventStoreTransactionRepository(
             eventStore,
             eventStore,
             metrics,
-            NullLogger<EventStoreTransactionRepository>.Instance);
+            NullLogger<EventStoreTransactionRepository>.Instance
+        );
         transaction = new CashFlowTransaction
         {
             Id = Guid.NewGuid(),
@@ -42,7 +45,7 @@ public class EventStoreTransactionRepositoryBenchmarks : IDisposable
             Amount = 75.25m,
             Description = "Benchmark repository save",
             OccurredOn = new DateOnly(2026, 6, 14),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
     }
 
@@ -53,23 +56,23 @@ public class EventStoreTransactionRepositoryBenchmarks : IDisposable
         return await repository.SaveAsync(transaction, "benchmark-user@cashflow.local");
     }
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 
-    private sealed class FakeBenchmarkEventStore : IEventStoreTransactionWriter, IEventStoreTransactionReader
+    private sealed class FakeBenchmarkEventStore
+        : IEventStoreTransactionWriter,
+            IEventStoreTransactionReader
     {
         public Task AppendAsync(
             Application.Contracts.TransactionRecordedEvent transactionEvent,
             Guid eventId,
             string? idempotencyKey = null,
-            CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
         public Task<Application.Contracts.TransactionRecordedEvent?> TryGetByEventIdAsync(
             string userId,
             Guid eventId,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<Application.Contracts.TransactionRecordedEvent?>(null);
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult<Application.Contracts.TransactionRecordedEvent?>(null);
     }
 }

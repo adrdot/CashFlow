@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CashFlow.Reporting.Infrastructure.Persistence;
 
-public sealed class ReportingDbContext(DbContextOptions<ReportingDbContext> options) : DbContext(options)
+public sealed class ReportingDbContext(DbContextOptions<ReportingDbContext> options)
+    : DbContext(options)
 {
-    public DbSet<ProjectedTransactionEntity> ProjectedTransactions => Set<ProjectedTransactionEntity>();
+    public DbSet<ProjectedTransactionEntity> ProjectedTransactions =>
+        Set<ProjectedTransactionEntity>();
 
     public DbSet<DailySummaryEntity> DailySummaries => Set<DailySummaryEntity>();
 

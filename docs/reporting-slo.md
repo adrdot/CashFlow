@@ -9,28 +9,28 @@ A meta de performance da constituição (50 req/s com até 5% de perda) aplica-s
 | Pilar | Objetivo | Sinais primários |
 |-------|----------|------------------|
 | **Performance** | Leituras cacheadas rápidas; caminho sem cache limitado | `reporting.read.duration`, `reporting.projection.duration` |
-| **Disponibilidade** | API acessível; poucos erros de servidor | `reporting.requests.total`, health `/ready` |
-| **Confiabilidade** | Projeção acompanha carga; cache coerente | `reporting.messages.*`, `reporting.cache.*`, gauges SQS |
+| **Disponibilidade** | API acessível; poucos erros de servidor | `http_server_request_duration_seconds`, health `/ready` |
+| **Confiabilidade** | Projeção acompanha carga; cache coerente | `reporting.messages.*`, `reporting.cache.*`, CloudWatch SQS |
 
 ## Indicadores de nível de serviço (SLI)
 
 | SLI | Meta | Constante | Medição |
 |-----|------|-----------|---------|
-| Throughput do consolidado | **50 RPS** sustentado | `TargetRequestsPerSecond` | Gate de carga / `reporting.requests.total` |
+| Throughput do consolidado | **50 RPS** sustentado | — | Gate de carga / `http_server_request_duration_seconds` |
 | Perda sob carga do consolidado | **≤ 5%** | `MaxFailurePercent` | Respostas falhas / total no gate |
 | Latência com cache | **95%** &lt; **2 s** | `MaxCachedP95LatencyMs` | `reporting.read.duration{cache="hit"}` |
 | Latência sem cache | **95%** &lt; **5 s** | `UncachedReportSeconds` | `reporting.read.duration{cache="miss"}` |
 | Latência leitura cacheada (p50) | &lt; **200 ms** | `MaxCachedP50LatencyMs` | Gate após aquecimento do cache |
-| Erros HTTP de servidor | **5xx** &lt; **1%** | `MaxServerErrorPercent` | `reporting.requests.total{status_class="5xx"}` |
+| Erros HTTP de servidor | **5xx** &lt; **1%** | `MaxServerErrorPercent` | `http_server_request_duration_seconds{http_response_status_code=~"5.."}` |
 | Consistência de exportação | **100%** iguais à UI | — | Testes de integração (spec 003 SC-003) |
 
-Constantes em `ReportingSlo.cs`. Alertas e PromQL em `ReportingAlertCatalog.cs`.
+Thresholds e gates de carga: `docs/reporting-slo.md` (tabela acima), `ReportingLoadTestSloGates.cs` (benchmarks). Alertas PromQL: `infra/observability/prometheus/alerts/reporting.yml`.
 
 ## Catálogo de métricas customizadas
 
 | Métrica | Serviço | Tipo | Tags | Pilar |
 |---------|---------|------|------|-------|
-| `reporting.requests.total` | reporting-api | Counter | `method`, `route`, `status_class` | Disponibilidade |
+| `http_server_request_duration_seconds` | reporting-api | Histogram (OTEL) | `http_response_status_code`, … | Disponibilidade |
 | `reporting.read.duration` | reporting-api | Histogram | `cache`, `outcome` | Performance |
 | `reporting.cache.hits` | reporting-api | Counter | — | Performance |
 | `reporting.cache.misses` | reporting-api | Counter | — | Performance |
@@ -41,8 +41,8 @@ Constantes em `ReportingSlo.cs`. Alertas e PromQL em `ReportingAlertCatalog.cs`.
 | `reporting.messages.failures` | reporting-worker | Counter | `error_type` | Confiabilidade |
 | `reporting.projection.duration` | reporting-worker | Histogram | `outcome` | Performance |
 | `reporting.pipeline.duration` | reporting-worker | Histogram | — | Performance |
-| `reporting.sqs.visible_messages` | reporting-worker | Gauge | — | Confiabilidade |
-| `reporting.sqs.in_flight_messages` | reporting-worker | Gauge | — | Confiabilidade |
+| `aws_sqs_approximate_number_of_messages_visible_average` | infra (CloudWatch) | Gauge | `queue_name` | Confiabilidade |
+| `aws_sqs_approximate_number_of_messages_not_visible_average` | infra (CloudWatch) | Gauge | `queue_name` | Confiabilidade |
 
 ## Alertas (Prometheus)
 
@@ -71,7 +71,7 @@ Executar localmente (stack ativa):
 
 Gates automáticos: fail % ≤ 5%, **p50** &lt; 200 ms, **p95** &lt; 2000 ms (após aquecimento sequencial do cache).
 
-**Teste local:** desabilitar rate limiting global na `reporting-api` (`Security:RateLimitingEnabled=false` em Development / AppHost).
+**Teste local:** desabilitar rate limiting global na `reporting-api` (`Security:RateLimitingEnabled=false` em Development / AppHost). Enquanto a stack estiver ativa, use `.\scripts\run-reporting-load-test.ps1` ou `dotnet run --no-build` — sem `--no-build` o MSBuild recompila `CashFlow.Reporting.Api` e encerra o processo em execução no Aspire.
 
 Logs: `tests/CashFlow.Reporting.Benchmarks/reports/`.
 

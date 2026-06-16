@@ -9,7 +9,9 @@ param(
     [string]$ReportingMetricsScheme = 'http',
     [bool]$UseOtelCollector = $true,
     [switch]$InsecureSkipTlsVerify,
-    [switch]$StrictTlsVerify
+    [switch]$StrictTlsVerify,
+    [switch]$SkipCloudWatchExporter,
+    [string]$LocalStackEndpoint = "http://host.docker.internal:4566"
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,11 +33,9 @@ function Invoke-NativeDockerCommand {
 
     $ErrorActionPreference = "Continue"
     try {
-        if ($SuppressOutput) {
-            & $Command 2>$null | Out-Null
-        }
-        else {
-            & $Command
+        $output = & $Command 2>&1
+        if (-not $SuppressOutput) {
+            $output | ForEach-Object { Write-Host $_ }
         }
 
         $exitCode = $LASTEXITCODE
@@ -48,7 +48,12 @@ function Invoke-NativeDockerCommand {
     }
 
     if ($ThrowOnFailure -and $exitCode -ne 0) {
-        throw "Docker command failed (exit $exitCode)."
+        $detail = ($output | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($detail)) {
+            throw "Docker command failed (exit $exitCode)."
+        }
+
+        throw "Docker command failed (exit $exitCode): $detail"
     }
 }
 
@@ -154,11 +159,14 @@ function Build-PrometheusScrapeConfigs {
         [string]$MetricsTlsBlock,
         [string]$ReportingMetricsTarget,
         [string]$ReportingMetricsScheme,
-        [string]$ReportingMetricsTlsBlock
+        [string]$ReportingMetricsTlsBlock,
+        [bool]$IncludeCloudWatchExporter
     )
 
+    $configs = @()
+
     if ($UseOtelCollector) {
-        return @"
+        $configs += @"
   - job_name: otel-collector
     metrics_path: /metrics
     scheme: http
@@ -168,8 +176,8 @@ function Build-PrometheusScrapeConfigs {
           service: otel-collector
 "@
     }
-
-    return @"
+    else {
+        $configs += @"
   - job_name: transactions-api
     metrics_path: /metrics
     scheme: $MetricsScheme
@@ -188,6 +196,22 @@ $ReportingMetricsTlsBlock
         labels:
           service: reporting-api
 "@
+    }
+
+    if ($IncludeCloudWatchExporter) {
+        $configs += @"
+
+  - job_name: yace-cloudwatch
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['yace:5000']
+        labels:
+          service: aws-cloudwatch
+"@
+    }
+
+    return ($configs -join "`n")
 }
 
 function Start-TransactionsObservabilityStack {
@@ -202,7 +226,9 @@ function Start-TransactionsObservabilityStack {
         [string]$ReportingMetricsScheme = 'http',
         [bool]$UseOtelCollector = $true,
         [switch]$InsecureSkipTlsVerify,
-        [switch]$StrictTlsVerify
+        [switch]$StrictTlsVerify,
+        [switch]$SkipCloudWatchExporter,
+        [string]$LocalStackEndpoint = "http://host.docker.internal:4566"
     )
 
     if ($StrictTlsVerify -and $InsecureSkipTlsVerify) {
@@ -239,7 +265,8 @@ function Start-TransactionsObservabilityStack {
         -MetricsTlsBlock $settings.TlsBlock `
         -ReportingMetricsTarget $reportingSettings.Target `
         -ReportingMetricsScheme $reportingSettings.Scheme `
-        -ReportingMetricsTlsBlock $reportingSettings.TlsBlock
+        -ReportingMetricsTlsBlock $reportingSettings.TlsBlock `
+        -IncludeCloudWatchExporter:(-not $SkipCloudWatchExporter)
 
     $updated = $content.Replace('__SCRAPE_CONFIGS__', $scrapeConfigs)
     [System.IO.File]::WriteAllText($prometheusConfig, $updated)
@@ -258,15 +285,20 @@ function Start-TransactionsObservabilityStack {
     if ($settings.Scheme -eq 'https' -and $settings.SkipTlsVerify) {
         Write-Host "  TLS: insecure_skip_verify (local dev certificate)"
     }
+    if (-not $SkipCloudWatchExporter) {
+        Write-Host "  CloudWatch:  YACE -> LocalStack $LocalStackEndpoint (SQS depth -> aws_sqs_* metrics)"
+    }
     Write-Host "  Prometheus: http://localhost:9090"
     Write-Host "  Grafana:    http://localhost:3000 (admin / admin)"
     Write-Host "  Dashboard:  CashFlow / Messaging Pipeline (EventStore -> SQS)"
     Write-Host ""
 
-    $previousPrometheusConfig = $env:PROMETHEUS_CONFIG
     $previousAspireOtlpEndpoint = $env:ASPIRE_OTLP_ENDPOINT
-    $env:PROMETHEUS_CONFIG = $prometheusConfig
+    $previousAwsEndpointUrl = $env:AWS_ENDPOINT_URL
     $env:ASPIRE_OTLP_ENDPOINT = $AspireOtlpEndpoint
+    if (-not $SkipCloudWatchExporter) {
+        $env:AWS_ENDPOINT_URL = $LocalStackEndpoint
+    }
     try {
         Push-Location $stackDir
         try {
@@ -278,6 +310,10 @@ function Start-TransactionsObservabilityStack {
                 Invoke-NativeDockerCommand -ThrowOnFailure -SuppressOutput { docker compose -f $composeFile up -d --force-recreate otel-collector }
             }
 
+            if (-not $SkipCloudWatchExporter) {
+                Invoke-NativeDockerCommand -ThrowOnFailure -SuppressOutput { docker compose -f $composeFile up -d --force-recreate yace }
+            }
+
             Invoke-NativeDockerCommand -ThrowOnFailure -SuppressOutput { docker compose -f $composeFile up -d --force-recreate prometheus }
             Invoke-NativeDockerCommand -ThrowOnFailure -SuppressOutput { docker compose -f $composeFile up -d }
         }
@@ -286,18 +322,18 @@ function Start-TransactionsObservabilityStack {
         }
     }
     finally {
-        if ($null -eq $previousPrometheusConfig) {
-            Remove-Item Env:PROMETHEUS_CONFIG -ErrorAction SilentlyContinue
-        }
-        else {
-            $env:PROMETHEUS_CONFIG = $previousPrometheusConfig
-        }
-
         if ($null -eq $previousAspireOtlpEndpoint) {
             Remove-Item Env:ASPIRE_OTLP_ENDPOINT -ErrorAction SilentlyContinue
         }
         else {
             $env:ASPIRE_OTLP_ENDPOINT = $previousAspireOtlpEndpoint
+        }
+
+        if ($null -eq $previousAwsEndpointUrl) {
+            Remove-Item Env:AWS_ENDPOINT_URL -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:AWS_ENDPOINT_URL = $previousAwsEndpointUrl
         }
     }
 
@@ -314,5 +350,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         -ReportingMetricsScheme $ReportingMetricsScheme `
         -UseOtelCollector:$UseOtelCollector `
         -InsecureSkipTlsVerify:$InsecureSkipTlsVerify `
-        -StrictTlsVerify:$StrictTlsVerify
+        -StrictTlsVerify:$StrictTlsVerify `
+        -SkipCloudWatchExporter:$SkipCloudWatchExporter `
+        -LocalStackEndpoint $LocalStackEndpoint
 }

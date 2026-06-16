@@ -1,8 +1,11 @@
-using CashFlow.Auth.Application.Abstractions;
+using System.IdentityModel.Tokens.Jwt;
+using Aspire.CashFlow.ServiceDefaults.Authentication;
 using CashFlow.Auth.Application.Contracts;
 using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
+using CashFlow.Auth.Infrastructure.Persistence.Abstractions;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.Extensions.Options;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace CashFlow.Auth.Infrastructure.Identity;
 
@@ -13,12 +16,16 @@ public sealed class CognitoIdentityProvider(
     ITokenService tokenService,
     LocalMfaChallengeStore localMfaChallengeStore,
     IOptions<CognitoOptions> options,
-    IOptions<LocalAuthOptions> localAuthOptions) : IIdentityProvider
+    IOptions<LocalAuthOptions> localAuthOptions
+) : IIdentityProvider
 {
     private readonly CognitoOptions cognitoOptions = options.Value;
     private readonly LocalAuthOptions localAuth = localAuthOptions.Value;
 
-    public async Task<LoginResult> AuthenticateAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<LoginResult> AuthenticateAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default
+    )
     {
         if (cognitoOptions.IsConfigured)
         {
@@ -28,19 +35,27 @@ public sealed class CognitoIdentityProvider(
         return await AuthenticateWithLocalFallbackAsync(request, cancellationToken);
     }
 
-    public async Task<SessionState?> ValidateSessionAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<SessionState?> ValidateSessionAsync(
+        string token,
+        CancellationToken cancellationToken = default
+    )
     {
         if (cognitoOptions.IsConfigured)
         {
             var profile = await cognitoIdentityGateway.GetUserAsync(token, cancellationToken);
-            return profile is null ? null : BuildSessionFromAccessToken(token, profile.Email, profile.DisplayName);
+            return profile is null
+                ? null
+                : BuildSessionFromAccessToken(token, profile.Email, profile.DisplayName);
         }
 
         var session = tokenService.ValidateToken(token);
         return session is null ? null : Enrich(session);
     }
 
-    public async Task RevokeSessionAsync(string token, CancellationToken cancellationToken = default)
+    public async Task RevokeSessionAsync(
+        string token,
+        CancellationToken cancellationToken = default
+    )
     {
         if (cognitoOptions.IsConfigured && !cognitoOptions.UseLocalStack)
         {
@@ -48,7 +63,10 @@ public sealed class CognitoIdentityProvider(
         }
     }
 
-    public async Task<LoginResult> RefreshSessionAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<LoginResult> RefreshSessionAsync(
+        string refreshToken,
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
@@ -63,12 +81,16 @@ public sealed class CognitoIdentityProvider(
         return await RefreshWithLocalFallbackAsync(refreshToken, cancellationToken);
     }
 
-    private async Task<LoginResult> RefreshWithCognitoAsync(string refreshToken, CancellationToken cancellationToken)
+    private async Task<LoginResult> RefreshWithCognitoAsync(
+        string refreshToken,
+        CancellationToken cancellationToken
+    )
     {
         var authResult = await cognitoIdentityGateway.RefreshTokenAsync(
             cognitoOptions.ClientId,
             refreshToken,
-            cancellationToken);
+            cancellationToken
+        );
 
         if (authResult.IsInvalidRefreshToken)
         {
@@ -88,7 +110,10 @@ public sealed class CognitoIdentityProvider(
         return LoginResult.Success(authResult.AccessToken, session, rotatedRefreshToken);
     }
 
-    private async Task<LoginResult> RefreshWithLocalFallbackAsync(string refreshToken, CancellationToken cancellationToken)
+    private async Task<LoginResult> RefreshWithLocalFallbackAsync(
+        string refreshToken,
+        CancellationToken cancellationToken
+    )
     {
         var email = tokenService.ValidateRefreshToken(refreshToken);
         if (string.IsNullOrWhiteSpace(email))
@@ -113,26 +138,42 @@ public sealed class CognitoIdentityProvider(
         return LoginResult.Success(accessToken, Enrich(session), rotatedRefreshToken);
     }
 
-    private async Task<LoginResult> AuthenticateWithCognitoAsync(LoginRequest request, CancellationToken cancellationToken)
+    private async Task<LoginResult> AuthenticateWithCognitoAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken
+    )
     {
-        if (!string.IsNullOrWhiteSpace(request.ChallengeSession) && !string.IsNullOrWhiteSpace(request.MfaCode))
+        if (
+            !string.IsNullOrWhiteSpace(request.ChallengeSession)
+            && !string.IsNullOrWhiteSpace(request.MfaCode)
+        )
         {
             if (localMfaChallengeStore.IsLocalChallenge(request.ChallengeSession))
             {
-                if (!localMfaChallengeStore.TryCompleteWithPendingCognitoAuth(
+                if (
+                    !localMfaChallengeStore.TryCompleteWithPendingCognitoAuth(
                         request.ChallengeSession,
                         request.Email,
                         request.MfaCode,
                         localAuth.MfaCode,
-                        out var pendingAuth)
+                        out var pendingAuth
+                    )
                     || pendingAuth is null
-                    || string.IsNullOrWhiteSpace(pendingAuth.AccessToken))
+                    || string.IsNullOrWhiteSpace(pendingAuth.AccessToken)
+                )
                 {
                     return LoginResult.Failure("Invalid MFA code.");
                 }
 
-                var pendingSession = BuildSessionFromTokens(pendingAuth.AccessToken, pendingAuth.IdToken);
-                return LoginResult.Success(pendingAuth.AccessToken, pendingSession, pendingAuth.RefreshToken);
+                var pendingSession = BuildSessionFromTokens(
+                    pendingAuth.AccessToken,
+                    pendingAuth.IdToken
+                );
+                return LoginResult.Success(
+                    pendingAuth.AccessToken,
+                    pendingSession,
+                    pendingAuth.RefreshToken
+                );
             }
 
             var authResult = await cognitoIdentityGateway.RespondToMfaChallengeAsync(
@@ -141,7 +182,8 @@ public sealed class CognitoIdentityProvider(
                 request.Email,
                 request.MfaCode,
                 request.ChallengeName ?? "SMS_MFA",
-                cancellationToken);
+                cancellationToken
+            );
 
             return MapCognitoAuthResult(authResult);
         }
@@ -152,19 +194,22 @@ public sealed class CognitoIdentityProvider(
             cognitoOptions.ClientId,
             request.Email,
             request.Password,
-            cancellationToken);
+            cancellationToken
+        );
 
         if (ShouldApplyLocalMfaGate(initialAuthResult))
         {
             var challengeSession = localMfaChallengeStore.CreateChallenge(
                 request.Email,
                 TimeSpan.FromMinutes(localAuth.MfaChallengeTtlMinutes),
-                initialAuthResult);
+                initialAuthResult
+            );
 
             return LoginResult.MfaChallenge(
                 challengeSession,
                 "LOCAL_MFA",
-                $"Enter the local MFA code ({localAuth.MfaCode}).");
+                $"Enter the local MFA code ({localAuth.MfaCode})."
+            );
         }
 
         return MapCognitoAuthResult(initialAuthResult);
@@ -187,7 +232,8 @@ public sealed class CognitoIdentityProvider(
             return LoginResult.MfaChallenge(
                 authResult.ChallengeSession!,
                 authResult.ChallengeName!,
-                "Enter the MFA code generated for your Cognito user.");
+                "Enter the MFA code generated for your Cognito user."
+            );
         }
 
         if (authResult.IsInvalidCredentials)
@@ -209,17 +255,25 @@ public sealed class CognitoIdentityProvider(
         return LoginResult.Success(authResult.AccessToken, session, authResult.RefreshToken);
     }
 
-    private async Task<LoginResult> AuthenticateWithLocalFallbackAsync(LoginRequest request, CancellationToken cancellationToken)
+    private async Task<LoginResult> AuthenticateWithLocalFallbackAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken
+    )
     {
-        if (cognitoOptions.RequireMfa
+        if (
+            cognitoOptions.RequireMfa
             && !string.IsNullOrWhiteSpace(request.ChallengeSession)
-            && !string.IsNullOrWhiteSpace(request.MfaCode))
+            && !string.IsNullOrWhiteSpace(request.MfaCode)
+        )
         {
-            if (!localMfaChallengeStore.Validate(
+            if (
+                !localMfaChallengeStore.Validate(
                     request.ChallengeSession,
                     request.Email,
                     request.MfaCode,
-                    localAuth.MfaCode))
+                    localAuth.MfaCode
+                )
+            )
             {
                 return LoginResult.Failure("Invalid MFA code.");
             }
@@ -242,18 +296,23 @@ public sealed class CognitoIdentityProvider(
         {
             var challengeSession = localMfaChallengeStore.CreateChallenge(
                 request.Email,
-                TimeSpan.FromMinutes(localAuth.MfaChallengeTtlMinutes));
+                TimeSpan.FromMinutes(localAuth.MfaChallengeTtlMinutes)
+            );
 
             return LoginResult.MfaChallenge(
                 challengeSession,
                 "SOFTWARE_TOKEN_MFA",
-                $"Enter the local MFA code ({localAuth.MfaCode}).");
+                $"Enter the local MFA code ({localAuth.MfaCode})."
+            );
         }
 
         return await CompleteLocalLoginAsync(request, cancellationToken);
     }
 
-    private async Task<LoginResult> CompleteLocalLoginAsync(LoginRequest request, CancellationToken cancellationToken)
+    private async Task<LoginResult> CompleteLocalLoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken
+    )
     {
         var userAccount = await userAccountStore.FindByEmailAsync(request.Email, cancellationToken);
         if (userAccount is null || !userAccount.IsActive)
@@ -285,7 +344,7 @@ public sealed class CognitoIdentityProvider(
             DisplayName = session.DisplayName,
             ExpiresAtUtc = session.ExpiresAtUtc,
             AuthenticationSource = cognitoOptions.AuthenticationSource,
-            MfaRequired = cognitoOptions.RequireMfa
+            MfaRequired = cognitoOptions.RequireMfa,
         };
     }
 
@@ -298,11 +357,24 @@ public sealed class CognitoIdentityProvider(
             idJwt = new JwtSecurityTokenHandler().ReadJwtToken(idToken);
         }
 
-        var email = idJwt?.Claims.FirstOrDefault(claim => string.Equals(claim.Type, "email", StringComparison.OrdinalIgnoreCase))?.Value
-            ?? accessJwt.Claims.FirstOrDefault(claim => string.Equals(claim.Type, "username", StringComparison.OrdinalIgnoreCase))?.Value
+        var email =
+            idJwt
+                ?.Claims.FirstOrDefault(claim =>
+                    string.Equals(claim.Type, "email", StringComparison.OrdinalIgnoreCase)
+                )
+                ?.Value
+            ?? accessJwt
+                .Claims.FirstOrDefault(claim =>
+                    string.Equals(claim.Type, "username", StringComparison.OrdinalIgnoreCase)
+                )
+                ?.Value
             ?? string.Empty;
-        var displayName = idJwt?.Claims.FirstOrDefault(claim => string.Equals(claim.Type, "name", StringComparison.OrdinalIgnoreCase))?.Value
-            ?? email;
+        var displayName =
+            idJwt
+                ?.Claims.FirstOrDefault(claim =>
+                    string.Equals(claim.Type, "name", StringComparison.OrdinalIgnoreCase)
+                )
+                ?.Value ?? email;
 
         return new SessionState
         {
@@ -310,11 +382,15 @@ public sealed class CognitoIdentityProvider(
             DisplayName = displayName,
             ExpiresAtUtc = new DateTimeOffset(accessJwt.ValidTo, TimeSpan.Zero),
             AuthenticationSource = cognitoOptions.AuthenticationSource,
-            MfaRequired = cognitoOptions.RequireMfa
+            MfaRequired = cognitoOptions.RequireMfa,
         };
     }
 
-    private SessionState BuildSessionFromAccessToken(string accessToken, string email, string displayName)
+    private SessionState BuildSessionFromAccessToken(
+        string accessToken,
+        string email,
+        string displayName
+    )
     {
         var accessJwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
         return new SessionState
@@ -323,7 +399,7 @@ public sealed class CognitoIdentityProvider(
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             ExpiresAtUtc = new DateTimeOffset(accessJwt.ValidTo, TimeSpan.Zero),
             AuthenticationSource = cognitoOptions.AuthenticationSource,
-            MfaRequired = cognitoOptions.RequireMfa
+            MfaRequired = cognitoOptions.RequireMfa,
         };
     }
 }

@@ -52,13 +52,13 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 |----|----------------------|--------|------------|-------------------|-----------|
 
-| RT-01 | Solução em **C#** | ✅ | — | `AspireApp1.slnx`, projetos `*.csproj` | ✅ `dotnet build AspireApp1.slnx -c Release` (2026-06-15) |
+| RT-01 | Solução em **C#** | ✅ | — | `Aspire.CashFlow.slnx`, projetos `*.csproj` | ✅ `dotnet build Aspire.CashFlow.slnx -c Release` (2026-06-15) |
 
 | RT-02 | **Testes** automatizados | ✅ | Integração Auth/Reporting exige Docker/Cognito/Redis | `tests/**` | ⚠️ Core verde; contrato Auth falha sem Cognito local |
 
 | RT-03 | **Boas práticas** (SOLID, padrões) | ✅ | — | ADRs, camadas Application/Domain/Infrastructure | ✅ Revisão estrutural OK |
 
-| RT-04 | **README** com instruções claras | ✅ | Publicar URL GitHub quando repo estiver no ar | [`README.md`](../../README.md) | ✅ Links ADR/SLO/C4 existem |
+| RT-04 | **README** com instruções claras | ✅ | Publicar URL GitHub quando repo estiver no ar | [`README.md`](../README.md) | ✅ Links ADR/SLO/C4 existem |
 
 | RT-05 | **Repositório público** (GitHub) | ⚠️ | **Ação externa:** publicar e atualizar URL no README | URL `https://github.com/<org>/<repo>` | ❌ README ainda com placeholder |
 
@@ -211,7 +211,7 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 ### Checklist ARQ-06 — Métricas e alarmes (reporting)
 
 - [x] Métricas HTTP e leitura (`reporting.requests.total`, `reporting.read.duration`)
-- [x] Catálogo de alertas — `ReportingAlertCatalog.cs`
+- [x] Catálogo de alertas — `infra/observability/prometheus/alerts/reporting.yml`
 - [x] Regras Prometheus — `infra/observability/prometheus/alerts/reporting.yml`
 - [x] Dashboard Grafana — `infra/observability/grafana/dashboards/reporting-api.json`
 - [x] Alarmes CloudWatch local — `infra/localstack/setup-monitoring.ps1`
@@ -247,7 +247,7 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 | CON-02 | `reporting-slo.md` desatualizado | Baixa | Atualizado | ✅ |
 
-| CON-03 | Relay/Worker fora do slnx | Média | Adicionados ao `AspireApp1.slnx` | ✅ `dotnet build -c Release` |
+| CON-03 | Relay/Worker fora do slnx | Média | Adicionados ao `Aspire.CashFlow.slnx` | ✅ `dotnet build -c Release` |
 
 | CON-04 | CI GitHub Actions | Média | `.github/workflows/ci.yml` | ⚠️ Build Release OK; testes Auth/Redis precisam infra no runner |
 
@@ -273,7 +273,7 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 | Serviço consolidado | `CashFlow.Reporting.Api`, ADR 002 | ✅ |
 
-| C# | `AspireApp1.slnx` | ✅ |
+| C# | `Aspire.CashFlow.slnx` | ✅ |
 
 | Testes | `tests/*` | ✅ |
 
@@ -347,9 +347,9 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 - [ ] Repositório GitHub **público** com URL no README
 
-- [x] `dotnet build AspireApp1.slnx -c Release` passa localmente
+- [x] `dotnet build Aspire.CashFlow.slnx -c Release` passa localmente
 
-- [x] `dotnet test AspireApp1.slnx` 100% verde — ✅ **81/81** (2026-06-15, stack local ativa)
+- [x] `dotnet test Aspire.CashFlow.slnx` 100% verde — ✅ **81/81** (2026-06-15, stack local ativa)
 
 - [X] Sistema sobe com `.\scripts\run-full-local.ps1`
 
@@ -427,7 +427,7 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 |-----------|---------|
 
-| README raiz | [`../../README.md`](../../README.md) |
+| README raiz | [`../README.md`](../README.md) |
 
 | Índice docs | [`README.md`](README.md) |
 
@@ -442,9 +442,9 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 | Roadmap | [`roadmap.md`](roadmap.md) |
 
-| Script local | [`../../scripts/run-full-local.ps1`](../../scripts/run-full-local.ps1) |
+| Script local | [`../scripts/run-full-local.ps1`](../scripts/run-full-local.ps1) |
 
-| Teste de carga reporting | [`../../scripts/run-reporting-load-test.ps1`](../../scripts/run-reporting-load-test.ps1) |
+| Teste de carga reporting | [`../scripts/run-reporting-load-test.ps1`](../scripts/run-reporting-load-test.ps1) |
 
 ---
 
@@ -454,16 +454,16 @@ Documento de acompanhamento para fechar lacunas entre o projeto **Cash Flow** e 
 
 | Comando | Resultado |
 |---------|-----------|
-| `dotnet build AspireApp1.slnx -c Release` | ✅ Sucesso (após correções) |
+| `dotnet build Aspire.CashFlow.slnx -c Release` | ✅ Sucesso (após correções) |
 | `ReportingAvailabilityIsolationTests` | ✅ 3/3 |
 | `CashFlow.Reporting.UnitTests` | ✅ 10/10 |
 | `CashFlow.Transactions.IntegrationTests` | ✅ 8/8 |
 | `CashFlow.Transactions.ContractTests` | ✅ 6/6 |
 | `run-reporting-load-test.ps1` | ✅ 1500 OK @ 50 RPS, p50 3.5 ms, p95 7 ms |
 | `CashFlow.FunctionalTests` | ✅ 1/1 — crédito/débito → relatório → CSV/PDF |
-| `dotnet test AspireApp1.slnx -c Release` | ✅ **81/81** (stack local ativa) |
+| `dotnet test Aspire.CashFlow.slnx -c Release` | ✅ **81/81** (stack local ativa) |
 
-### `dotnet test AspireApp1.slnx -c Release` (stack local ativa)
+### `dotnet test Aspire.CashFlow.slnx -c Release` (stack local ativa)
 
 | Projeto | Resultado |
 |---------|-----------|

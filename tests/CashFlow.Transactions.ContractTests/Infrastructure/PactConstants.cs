@@ -11,6 +11,5 @@ internal static class PactConstants
     public static string PactDirectory =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "pacts"));
 
-    public static string PactFilePath =>
-        Path.Combine(PactDirectory, PactFileName);
+    public static string PactFilePath => Path.Combine(PactDirectory, PactFileName);
 }

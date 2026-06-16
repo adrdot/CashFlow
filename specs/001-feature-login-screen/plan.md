@@ -66,8 +66,8 @@ specs/001-feature-login-screen/
 ### Código-Fonte (raiz do repositório)
 
 ```text
-AspireApp1.AppHost/
-AspireApp1.ServiceDefaults/
+Aspire.CashFlow.AppHost/
+Aspire.CashFlow.ServiceDefaults/
 
 ├── src/
 │   ├── CashFlow.Auth.Api/

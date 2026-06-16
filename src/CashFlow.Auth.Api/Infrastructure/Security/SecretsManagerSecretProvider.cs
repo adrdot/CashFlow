@@ -1,5 +1,5 @@
-using CashFlow.Auth.Application.Abstractions;
 using CashFlow.Auth.Infrastructure.Configuration;
+using CashFlow.Auth.Infrastructure.Security.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -11,13 +11,17 @@ public sealed class SecretsManagerSecretProvider(
     IKmsEncryptionService kmsEncryptionService,
     IConfiguration configuration,
     IOptions<SecretsManagerOptions> options,
-    IMemoryCache memoryCache) : ISecretProvider
+    IMemoryCache memoryCache
+) : ISecretProvider
 {
     private const string KmsProtectedPrefix = "kms:";
 
     private readonly SecretsManagerOptions secretsOptions = options.Value;
 
-    public async Task<string?> GetSecretAsync(string secretName, CancellationToken cancellationToken = default)
+    public async Task<string?> GetSecretAsync(
+        string secretName,
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrWhiteSpace(secretName))
         {
@@ -25,8 +29,10 @@ public sealed class SecretsManagerSecretProvider(
         }
 
         var cacheKey = $"secrets-manager::{secretsOptions.Prefix}::{secretName}";
-        if (secretsOptions.EnableCaching
-            && memoryCache.TryGetValue(cacheKey, out string? cachedValue))
+        if (
+            secretsOptions.EnableCaching
+            && memoryCache.TryGetValue(cacheKey, out string? cachedValue)
+        )
         {
             return await ResolveProtectedValueAsync(cachedValue, cancellationToken);
         }
@@ -41,7 +47,10 @@ public sealed class SecretsManagerSecretProvider(
         if (string.IsNullOrWhiteSpace(resolvedValue))
         {
             var secretId = BuildSecretId(secretName);
-            resolvedValue = await secretsManagerGateway.GetSecretStringAsync(secretId, cancellationToken);
+            resolvedValue = await secretsManagerGateway.GetSecretStringAsync(
+                secretId,
+                cancellationToken
+            );
         }
 
         if (string.IsNullOrWhiteSpace(resolvedValue))
@@ -57,10 +66,15 @@ public sealed class SecretsManagerSecretProvider(
         return await ResolveProtectedValueAsync(resolvedValue, cancellationToken);
     }
 
-    private async Task<string?> ResolveProtectedValueAsync(string? secretValue, CancellationToken cancellationToken)
+    private async Task<string?> ResolveProtectedValueAsync(
+        string? secretValue,
+        CancellationToken cancellationToken
+    )
     {
-        if (string.IsNullOrWhiteSpace(secretValue)
-            || !secretValue.StartsWith(KmsProtectedPrefix, StringComparison.Ordinal))
+        if (
+            string.IsNullOrWhiteSpace(secretValue)
+            || !secretValue.StartsWith(KmsProtectedPrefix, StringComparison.Ordinal)
+        )
         {
             return secretValue;
         }
@@ -68,7 +82,8 @@ public sealed class SecretsManagerSecretProvider(
         return await kmsEncryptionService.DecryptFromBase64Async(
             secretValue[KmsProtectedPrefix.Length..],
             "Secrets",
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private string BuildSecretId(string secretName)
@@ -95,6 +110,7 @@ public sealed class SecretsManagerSecretProvider(
         memoryCache.Set(
             cacheKey,
             secretValue,
-            TimeSpan.FromMinutes(Math.Max(1, secretsOptions.CacheDurationMinutes)));
+            TimeSpan.FromMinutes(Math.Max(1, secretsOptions.CacheDurationMinutes))
+        );
     }
 }

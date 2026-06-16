@@ -9,11 +9,15 @@ public sealed class ReportingApiClient(HttpClient httpClient)
     public async Task<DailyReportResult?> GetDailyReportAsync(
         DateOnly reportDate,
         string token,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/reports/daily?date={reportDate:yyyy-MM-dd}");
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"/api/reports/daily?date={reportDate:yyyy-MM-dd}"
+            );
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -22,7 +26,9 @@ public sealed class ReportingApiClient(HttpClient httpClient)
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<DailyReportResult>(cancellationToken: cancellationToken);
+            return await response.Content.ReadFromJsonAsync<DailyReportResult>(
+                cancellationToken: cancellationToken
+            );
         }
         catch (HttpRequestException)
         {
@@ -33,13 +39,15 @@ public sealed class ReportingApiClient(HttpClient httpClient)
     public async Task<ReportDownloadResult?> DownloadDailyReportCsvAsync(
         DateOnly reportDate,
         string token,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
-                $"/api/reports/daily/export/csv?date={reportDate:yyyy-MM-dd}");
+                $"/api/reports/daily/export/csv?date={reportDate:yyyy-MM-dd}"
+            );
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -49,7 +57,8 @@ public sealed class ReportingApiClient(HttpClient httpClient)
             }
 
             var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-            var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            var fileName =
+                response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
                 ?? $"daily-report-{reportDate:yyyy-MM-dd}.csv";
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "text/csv";
 
@@ -57,7 +66,7 @@ public sealed class ReportingApiClient(HttpClient httpClient)
             {
                 Content = content,
                 FileName = fileName,
-                ContentType = contentType
+                ContentType = contentType,
             };
         }
         catch (HttpRequestException)

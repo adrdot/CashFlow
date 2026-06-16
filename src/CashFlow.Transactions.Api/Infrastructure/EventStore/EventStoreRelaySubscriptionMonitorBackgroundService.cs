@@ -11,10 +11,9 @@ public sealed class EventStoreRelaySubscriptionMonitorBackgroundService(
     RelaySubscriptionStats relaySubscriptionStats,
     IOptions<EventStoreOptions> eventStoreOptions,
     IOptions<MessagingOptions> messagingOptions,
-    ILogger<EventStoreRelaySubscriptionMonitorBackgroundService> logger) : BackgroundService
+    ILogger<EventStoreRelaySubscriptionMonitorBackgroundService> logger
+) : BackgroundService
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!messagingOptions.Value.Enabled)
@@ -34,7 +33,8 @@ public sealed class EventStoreRelaySubscriptionMonitorBackgroundService(
                     relaySubscriptionStats.Update(
                         snapshot.LagEvents,
                         snapshot.InFlightMessages,
-                        snapshot.ParkedMessages);
+                        snapshot.ParkedMessages
+                    );
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -43,12 +43,19 @@ public sealed class EventStoreRelaySubscriptionMonitorBackgroundService(
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to poll EventStore subscription stats for {GroupName}.", groupName);
+                logger.LogDebug(
+                    ex,
+                    "Failed to poll EventStore subscription stats for {GroupName}.",
+                    groupName
+                );
             }
 
             try
             {
-                await Task.Delay(PollInterval, stoppingToken);
+                await Task.Delay(
+                    TimeSpan.FromSeconds(eventStoreOptions.Value.SubscriptionMonitorPollSeconds),
+                    stoppingToken
+                );
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

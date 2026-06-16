@@ -4,22 +4,21 @@ public sealed class SecretsManagerOptions
 {
     public const string SectionName = "SecretsManager";
 
-    public string Region { get; init; } = "us-east-1";
+    public string Region { get; init; } = string.Empty;
 
-    public string Prefix { get; init; } = "cashflow/";
+    public string Prefix { get; init; } = string.Empty;
 
-    public bool EnableCaching { get; init; } = true;
+    public bool EnableCaching { get; init; }
 
-    public int CacheDurationMinutes { get; init; } = 5;
+    public int CacheDurationMinutes { get; init; }
 
     /// <summary>
-    /// When set (e.g. LocalStack at http://localhost:4566), the AWS SDK uses this endpoint.
+    /// When set (e.g. LocalStack), the AWS SDK uses this endpoint.
     /// </summary>
     public string? ServiceUrl { get; init; }
 
     /// <summary>
     /// When true, configuration values under <c>Secrets:</c> are preferred over AWS Secrets Manager.
-    /// Recommended for local development without LocalStack.
     /// </summary>
     public bool PreferConfiguration { get; init; }
 

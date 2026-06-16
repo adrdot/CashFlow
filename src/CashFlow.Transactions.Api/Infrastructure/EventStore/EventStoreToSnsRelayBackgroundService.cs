@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using CashFlow.Transactions.Application.Abstractions;
+using CashFlow.Transactions.Infrastructure.Messaging.Abstractions;
 using CashFlow.Transactions.Infrastructure.Messaging;
 using CashFlow.Transactions.Infrastructure.Observability;
 using global::EventStore.Client;
@@ -17,10 +17,9 @@ public sealed class EventStoreToSnsRelayBackgroundService(
     IServiceScopeFactory scopeFactory,
     IOptions<EventStoreOptions> eventStoreOptions,
     IOptions<MessagingOptions> messagingOptions,
-    ILogger<EventStoreToSnsRelayBackgroundService> logger) : BackgroundService
+    ILogger<EventStoreToSnsRelayBackgroundService> logger
+) : BackgroundService
 {
-    private const int SubscriptionBufferSize = 20;
-
     private readonly EventStoreOptions _eventStoreOptions = eventStoreOptions.Value;
     private readonly MessagingOptions _messagingOptions = messagingOptions.Value;
 
@@ -36,15 +35,17 @@ public sealed class EventStoreToSnsRelayBackgroundService(
         logger.LogInformation(
             "EventStore SNS relay starting (group {GroupName}, stream prefix {StreamPrefix}).",
             groupName,
-            _eventStoreOptions.StreamNamePrefix);
+            _eventStoreOptions.StreamNamePrefix
+        );
 
         await EnsurePersistentSubscriptionAsync(groupName, stoppingToken);
 
         await using var subscription = persistentSubscriptionsClient.SubscribeToAll(
             groupName,
-            SubscriptionBufferSize,
+            _eventStoreOptions.SubscriptionBufferSize,
             userCredentials: null,
-            cancellationToken: stoppingToken);
+            cancellationToken: stoppingToken
+        );
 
         try
         {
@@ -53,16 +54,18 @@ public sealed class EventStoreToSnsRelayBackgroundService(
                 await ProcessEventAsync(subscription, resolvedEvent, stoppingToken);
             }
         }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
     }
 
-    private async Task EnsurePersistentSubscriptionAsync(string groupName, CancellationToken cancellationToken)
+    private async Task EnsurePersistentSubscriptionAsync(
+        string groupName,
+        CancellationToken cancellationToken
+    )
     {
         var settings = new PersistentSubscriptionSettings(
             resolveLinkTos: false,
-            startFrom: Position.Start);
+            startFrom: Position.Start
+        );
 
         var filter = StreamFilter.Prefix(_eventStoreOptions.StreamNamePrefix);
 
@@ -72,7 +75,8 @@ public sealed class EventStoreToSnsRelayBackgroundService(
                 groupName,
                 filter,
                 settings,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken
+            );
             logger.LogInformation("Created persistent subscription group {GroupName}.", groupName);
         }
         catch (Exception ex) when (IsPersistentSubscriptionGroupAlreadyExists(ex))
@@ -88,14 +92,18 @@ public sealed class EventStoreToSnsRelayBackgroundService(
     private async Task ProcessEventAsync(
         PersistentSubscriptionResult subscription,
         ResolvedEvent resolvedEvent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (resolvedEvent.Event.EventType is null
+        if (
+            resolvedEvent.Event.EventType is null
             || !TransactionRecordedEventParser.TryParse(
                 resolvedEvent.Event.Data,
                 resolvedEvent.Event.EventType,
-                out var transactionEvent)
-            || transactionEvent is null)
+                out var transactionEvent
+            )
+            || transactionEvent is null
+        )
         {
             await subscription.Ack(resolvedEvent);
             return;
@@ -119,7 +127,8 @@ public sealed class EventStoreToSnsRelayBackgroundService(
                 TransactionLogEvents.OutboxEventPublished,
                 "Relayed EventStore event {TransactionId} to SNS in {DurationMs}ms.",
                 transactionEvent.TransactionId,
-                publishStopwatch.Elapsed.TotalMilliseconds);
+                publishStopwatch.Elapsed.TotalMilliseconds
+            );
         }
         catch (Exception ex)
         {
@@ -129,12 +138,14 @@ public sealed class EventStoreToSnsRelayBackgroundService(
                 TransactionLogEvents.OutboxPublishFailed,
                 ex,
                 "Failed to relay EventStore event {TransactionId} to SNS.",
-                transactionEvent.TransactionId);
+                transactionEvent.TransactionId
+            );
 
             await subscription.Nack(
                 PersistentSubscriptionNakEventAction.Retry,
                 ex.ToString(),
-                resolvedEvent);
+                resolvedEvent
+            );
         }
     }
 }

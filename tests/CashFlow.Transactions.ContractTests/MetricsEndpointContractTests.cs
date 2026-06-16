@@ -25,8 +25,20 @@ public sealed class MetricsEndpointContractTests
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Contains("transactions_created_total", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("transactions_events_published_total", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("transactions_relay_subscription_lag", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("transactions_persistence_duration_milliseconds", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "transactions_events_published_total",
+            body,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.Contains(
+            "transactions_relay_subscription_lag",
+            body,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.Contains(
+            "transactions_persistence_duration_milliseconds",
+            body,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 }

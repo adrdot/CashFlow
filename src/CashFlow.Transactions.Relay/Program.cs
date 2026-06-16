@@ -1,4 +1,5 @@
 using CashFlow.Transactions.Api.Configuration;
+using CashFlow.Transactions.Infrastructure.EventStore;
 using CashFlow.Transactions.Infrastructure.Observability;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -6,14 +7,18 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddTransactionsRelayInfrastructure(builder.Configuration);
 
-var eventStoreEndpoint = builder.Configuration["EventStore:HttpEndpoint"];
-if (!string.IsNullOrWhiteSpace(eventStoreEndpoint))
+var eventStoreOptions =
+    builder.Configuration.GetSection(EventStoreOptions.SectionName).Get<EventStoreOptions>();
+if (eventStoreOptions is not null && !string.IsNullOrWhiteSpace(eventStoreOptions.HttpEndpoint))
 {
-    builder.Services.AddHttpClient("eventstore", client =>
-    {
-        client.BaseAddress = new Uri(eventStoreEndpoint.TrimEnd('/') + "/");
-        client.Timeout = TimeSpan.FromSeconds(10);
-    });
+    builder.Services.AddHttpClient(
+        "eventstore",
+        client =>
+        {
+            client.BaseAddress = new Uri(eventStoreOptions.HttpEndpoint.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(eventStoreOptions.HttpTimeoutSeconds);
+        }
+    );
 }
 
 var host = builder.Build();

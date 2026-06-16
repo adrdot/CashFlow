@@ -1,6 +1,7 @@
-using CashFlow.Reporting.Application.Abstractions;
 using CashFlow.Reporting.Infrastructure.Caching;
+using CashFlow.Reporting.Infrastructure.Caching.Abstractions;
 using CashFlow.Reporting.Infrastructure.Persistence;
+using CashFlow.Reporting.Infrastructure.Persistence.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -22,25 +23,29 @@ internal sealed class FunctionalReportingWebApplicationFactory : WebApplicationF
 
         builder.UseEnvironment("Development");
 
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.Sources.Clear();
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+        builder.ConfigureAppConfiguration(
+            (_, config) =>
             {
-                ["ConnectionStrings:reporting-db"] = string.Empty,
-                ["Messaging:SqsQueueUrl"] = string.Empty,
-                ["Cognito:Enabled"] = "false",
-                ["Cognito:UserPoolId"] = string.Empty,
-                ["Cognito:ClientId"] = string.Empty,
-                ["Cognito:ServiceUrl"] = string.Empty,
-                ["Reporting:Redis:Enabled"] = "false",
-                ["Security:RateLimitingEnabled"] = "false",
-                ["CloudWatch:Enabled"] = "false",
-                ["Jwt:Issuer"] = "CashFlow.Auth.Api",
-                ["Jwt:Audience"] = "CashFlow.Web",
-                ["Jwt:SigningKey"] = "dev-only-signing-key-change-me-1234567890"
-            });
-        });
+                config.Sources.Clear();
+                config.AddInMemoryCollection(
+                    new Dictionary<string, string?>
+                    {
+                        ["ConnectionStrings:reporting-db"] = string.Empty,
+                        ["Messaging:SqsQueueUrl"] = string.Empty,
+                        ["Cognito:Enabled"] = "false",
+                        ["Cognito:UserPoolId"] = string.Empty,
+                        ["Cognito:ClientId"] = string.Empty,
+                        ["Cognito:ServiceUrl"] = string.Empty,
+                        ["Reporting:Redis:Enabled"] = "false",
+                        ["Security:RateLimitingEnabled"] = "false",
+                        ["CloudWatch:Enabled"] = "false",
+                        ["Jwt:Issuer"] = "CashFlow.Auth.Api",
+                        ["Jwt:Audience"] = "CashFlow.Web",
+                        ["Jwt:SigningKey"] = "dev-only-signing-key-change-me-1234567890",
+                    }
+                );
+            }
+        );
 
         builder.ConfigureTestServices(services =>
         {
@@ -50,8 +55,10 @@ internal sealed class FunctionalReportingWebApplicationFactory : WebApplicationF
             services.RemoveAll<ReportingDbContext>();
 
             services.AddDbContext<ReportingDbContext>(options =>
-                options.UseInMemoryDatabase(databaseName)
-                    .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
+                options
+                    .UseInMemoryDatabase(databaseName)
+                    .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            );
             services.AddScoped<IReportRepository, SqlReportRepository>();
             services.AddSingleton<IReportCache, NullReportCache>();
             services.AddScoped<TransactionProjectionWriter>();

@@ -124,8 +124,8 @@ tests/
 ├── CashFlow.Transactions.IntegrationTests/
 └── CashFlow.Transactions.UnitTests/
 
-AspireApp1.AppHost/
-AspireApp1.ServiceDefaults/
+Aspire.CashFlow.AppHost/
+Aspire.CashFlow.ServiceDefaults/
 ```
 
 **Decisão de estrutura**: Manter o layout multi-projeto existente da Clean Architecture. Concentrar abstrações de identidade e gestão de usuários em `CashFlow.Auth.Application` e `CashFlow.Auth.Domain`, adaptadores AWS em `CashFlow.Auth.Infrastructure`, endpoints de auth voltados à API em `CashFlow.Auth.Api`, e tratamento de sessão no front-end em `CashFlow.Web`. Aplicar segurança de perímetro de forma consistente às APIs de Reporting e Transactions sem colapsar bounded contexts. Adicionar testes automatizados focados em autenticação junto à estratégia de testes existente, criando projetos de teste Auth dedicados se a estrutura atual de cobertura se mostrar insuficiente.

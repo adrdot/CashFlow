@@ -22,8 +22,11 @@ public sealed class OAuthTokenResponse
             RefreshToken = result.RefreshToken,
             ExpiresIn = result.Session is null
                 ? 0
-                : Math.Max(0, (int)(result.Session.ExpiresAtUtc - DateTimeOffset.UtcNow).TotalSeconds),
-            Session = result.Session
+                : Math.Max(
+                    0,
+                    (int)(result.Session.ExpiresAtUtc - DateTimeOffset.UtcNow).TotalSeconds
+                ),
+            Session = result.Session,
         };
     }
 }

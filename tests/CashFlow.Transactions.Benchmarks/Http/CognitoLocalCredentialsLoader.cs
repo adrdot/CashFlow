@@ -40,14 +40,15 @@ internal static class CognitoLocalCredentialsLoader
                 "infra",
                 "cognito-local",
                 "generated",
-                "cognito.env");
+                "cognito.env"
+            );
 
             if (File.Exists(candidate))
             {
                 return candidate;
             }
 
-            if (File.Exists(Path.Combine(directory.FullName, "AspireApp1.slnx")))
+            if (File.Exists(Path.Combine(directory.FullName, "Aspire.CashFlow.slnx")))
             {
                 break;
             }

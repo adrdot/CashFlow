@@ -1,30 +1,38 @@
 using System.Text.Json;
 using CashFlow.Transactions.Application.Contracts;
+using CashFlow.Transactions.Infrastructure.EventStore.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CashFlow.Transactions.Infrastructure.EventStore;
 
 public sealed class EventStoreStreamReader(
     HttpClient httpClient,
-    ILogger<EventStoreStreamReader> logger) : IEventStoreTransactionReader
+    IOptions<EventStoreOptions> eventStoreOptions,
+    ILogger<EventStoreStreamReader> logger
+) : IEventStoreTransactionReader
 {
-    private const int BackwardPageSize = 50;
-    private const int MaxPages = 20;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<TransactionRecordedEvent?> TryGetByEventIdAsync(
         string userId,
         Guid eventId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var streamName = BuildStreamName(userId);
         var position = 0;
+        var settings = eventStoreOptions.Value;
 
-        for (var page = 0; page < MaxPages; page++)
+        for (var page = 0; page < settings.MaxReadPages; page++)
         {
-            var requestUri = $"streams/{Uri.EscapeDataString(streamName)}/{position}/backward/{BackwardPageSize}";
+            var requestUri =
+                $"streams/{Uri.EscapeDataString(streamName)}/{position}/backward/{settings.BackwardPageSize}";
             using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-            request.Headers.TryAddWithoutValidation("Accept", "application/vnd.eventstore.atom+json");
+            request.Headers.TryAddWithoutValidation(
+                "Accept",
+                "application/vnd.eventstore.atom+json"
+            );
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -39,7 +47,8 @@ public sealed class EventStoreStreamReader(
                     "EventStore stream read failed for {StreamName} with {StatusCode}: {Body}",
                     streamName,
                     (int)response.StatusCode,
-                    body);
+                    body
+                );
                 return null;
             }
 
@@ -62,7 +71,11 @@ public sealed class EventStoreStreamReader(
 
     internal static string BuildStreamName(string userId) => $"cashflow-{userId.Trim()}";
 
-    private static bool TryFindEvent(string json, Guid eventId, out TransactionRecordedEvent? transactionEvent)
+    private static bool TryFindEvent(
+        string json,
+        Guid eventId,
+        out TransactionRecordedEvent? transactionEvent
+    )
     {
         transactionEvent = null;
         if (string.IsNullOrWhiteSpace(json))
@@ -78,8 +91,10 @@ public sealed class EventStoreStreamReader(
                 return TryFindInArray(document.RootElement, eventId, out transactionEvent);
             }
 
-            if (document.RootElement.TryGetProperty("entries", out var entries)
-                && entries.ValueKind == JsonValueKind.Array)
+            if (
+                document.RootElement.TryGetProperty("entries", out var entries)
+                && entries.ValueKind == JsonValueKind.Array
+            )
             {
                 return TryFindInArray(entries, eventId, out transactionEvent);
             }
@@ -92,7 +107,11 @@ public sealed class EventStoreStreamReader(
         return false;
     }
 
-    private static bool TryFindInArray(JsonElement entries, Guid eventId, out TransactionRecordedEvent? transactionEvent)
+    private static bool TryFindInArray(
+        JsonElement entries,
+        Guid eventId,
+        out TransactionRecordedEvent? transactionEvent
+    )
     {
         transactionEvent = null;
         foreach (var entry in entries.EnumerateArray())
@@ -120,7 +139,8 @@ public sealed class EventStoreStreamReader(
         JsonElement entry,
         out Guid entryEventId,
         out string eventType,
-        out ReadOnlyMemory<byte> data)
+        out ReadOnlyMemory<byte> data
+    )
     {
         entryEventId = Guid.Empty;
         eventType = string.Empty;
@@ -149,8 +169,10 @@ public sealed class EventStoreStreamReader(
 
         data = dataElement.ValueKind switch
         {
-            JsonValueKind.String => System.Text.Encoding.UTF8.GetBytes(dataElement.GetString() ?? string.Empty),
-            _ => ReadOnlyMemory<byte>.Empty
+            JsonValueKind.String => System.Text.Encoding.UTF8.GetBytes(
+                dataElement.GetString() ?? string.Empty
+            ),
+            _ => ReadOnlyMemory<byte>.Empty,
         };
 
         return data.Length > 0;
@@ -162,9 +184,10 @@ public sealed class EventStoreStreamReader(
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            var entries = root.ValueKind == JsonValueKind.Array
-                ? root
-                : root.TryGetProperty("entries", out var nested) ? nested : default;
+            var entries =
+                root.ValueKind == JsonValueKind.Array ? root
+                : root.TryGetProperty("entries", out var nested) ? nested
+                : default;
 
             if (entries.ValueKind != JsonValueKind.Array || entries.GetArrayLength() == 0)
             {

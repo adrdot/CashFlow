@@ -22,7 +22,7 @@ groups:
           description: EventStore-to-SNS publish p95 exceeded 5 seconds for 5 minutes.
 
       - alert: TransactionsServerErrorRateHigh
-        expr: 100 * sum(rate(transactions_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(transactions_requests_total[5m])), 1) > 1
+        expr: 100 * (sum(rate(http_server_request_duration_seconds_count{job="transactions-api",http_response_status_code=~"5.."}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job="transactions-api",http_response_status_code=~"5.."}[5m]))) / clamp_min((sum(rate(http_server_request_duration_seconds_count{job="transactions-api"}[5m])) or sum(rate(http_server_request_duration_seconds_count{exported_job="transactions-api"}[5m]))), 1) > 1
         for: 5m
         labels:
           severity: critical

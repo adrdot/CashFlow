@@ -21,7 +21,8 @@ internal sealed class ReportingLoadTestOptions
 
     public int Rate { get; init; } = ReportingLoadTestDefaults.DefaultLoadRate;
 
-    public int DurationSeconds { get; init; } = ReportingLoadTestDefaults.DefaultLoadDurationSeconds;
+    public int DurationSeconds { get; init; } =
+        ReportingLoadTestDefaults.DefaultLoadDurationSeconds;
 
     public DateOnly? ReportDate { get; init; }
 
@@ -39,10 +40,11 @@ internal sealed class ReportingLoadTestOptions
             BearerToken = shared.BearerToken,
             AuthDescription = shared.DescribeAuth(),
             Rate = shared.Rate > 0 ? shared.Rate : ReportingLoadTestDefaults.DefaultLoadRate,
-            DurationSeconds = shared.DurationSeconds > 0
-                ? shared.DurationSeconds
-                : ReportingLoadTestDefaults.DefaultLoadDurationSeconds,
-            ReportDate = reportDate
+            DurationSeconds =
+                shared.DurationSeconds > 0
+                    ? shared.DurationSeconds
+                    : ReportingLoadTestDefaults.DefaultLoadDurationSeconds,
+            ReportDate = reportDate,
         };
     }
 
@@ -64,13 +66,16 @@ internal static class ReportingBaseUrlResolver
             return envUrl!.TrimEnd('/');
         }
 
-        if (!string.IsNullOrWhiteSpace(cliUrl)
-            && cliUrl.Contains("PORT", StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.IsNullOrWhiteSpace(cliUrl)
+            && cliUrl.Contains("PORT", StringComparison.OrdinalIgnoreCase)
+        )
         {
             Console.WriteLine(
-                $"Warning: --url '{cliUrl}' looks like a placeholder. " +
-                $"Using {ReportingLoadTestDefaults.DefaultBaseUrl}. " +
-                "Set CASHFLOW_REPORTING_URL or pass a real Aspire dashboard URL.");
+                $"Warning: --url '{cliUrl}' looks like a placeholder. "
+                    + $"Using {ReportingLoadTestDefaults.DefaultBaseUrl}. "
+                    + "Set CASHFLOW_REPORTING_URL or pass a real Aspire dashboard URL."
+            );
         }
 
         return ReportingLoadTestDefaults.DefaultBaseUrl;

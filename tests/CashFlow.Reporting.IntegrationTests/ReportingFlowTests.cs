@@ -1,7 +1,7 @@
 using CashFlow.Reporting.Application;
-using CashFlow.Reporting.Application.Abstractions;
 using CashFlow.Reporting.Domain.Entities;
 using CashFlow.Reporting.Infrastructure.Caching;
+using CashFlow.Reporting.Infrastructure.Caching.Abstractions;
 using CashFlow.Reporting.Infrastructure.Persistence;
 using CashFlow.Reporting.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,9 @@ public sealed class DailySummaryProjectionTests
 
         var connectionString = await SqlTestDatabase.EnsureReportingDatabaseAsync();
         var services = new ServiceCollection();
-        services.AddDbContext<ReportingDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddDbContext<ReportingDbContext>(options =>
+            options.UseSqlServer(connectionString)
+        );
         services.AddSingleton<IReportCache, NullReportCache>();
         services.AddScoped<TransactionProjectionWriter>();
 
@@ -37,11 +39,28 @@ public sealed class DailySummaryProjectionTests
         var reportDate = new DateOnly(2026, 6, 15);
 
         await writer.ProjectAsync(
-            Guid.NewGuid(), userId, "Credit", 100m, "Sale", reportDate, DateTimeOffset.UtcNow, CancellationToken.None);
+            Guid.NewGuid(),
+            userId,
+            "Credit",
+            100m,
+            "Sale",
+            reportDate,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None
+        );
         await writer.ProjectAsync(
-            Guid.NewGuid(), userId, "Debit", 40m, "Expense", reportDate, DateTimeOffset.UtcNow, CancellationToken.None);
+            Guid.NewGuid(),
+            userId,
+            "Debit",
+            40m,
+            "Expense",
+            reportDate,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None
+        );
 
-        var summary = await dbContext.DailySummaries.AsNoTracking()
+        var summary = await dbContext
+            .DailySummaries.AsNoTracking()
             .SingleAsync(x => x.UserId == userId && x.ReportDate == reportDate);
 
         Assert.Equal(100m, summary.TotalCredits);
@@ -61,28 +80,42 @@ public sealed class RedisReportCacheTests
         }
 
         var services = new ServiceCollection();
-        services.AddStackExchangeRedisCache(options => options.Configuration = RedisTestDatabase.ConnectionString);
+        services.AddStackExchangeRedisCache(options =>
+            options.Configuration = RedisTestDatabase.ConnectionString
+        );
         services.Configure<ReportingCacheOptions>(_ => new ReportingCacheOptions());
-        services.AddSingleton<Infrastructure.Observability.ReportingQueueStats>();
+        services.AddMetrics();
         services.AddSingleton<Infrastructure.Observability.ReportingMetrics>();
         services.AddSingleton<IReportCache, RedisReportCache>();
 
         await using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IReportCache>();
-        var report = DailyReportBuilder.Build(new DateOnly(2026, 6, 12), new DailySummary
-        {
-            UserId = "cache-user",
-            ReportDate = new DateOnly(2026, 6, 12),
-            TotalCredits = 50m,
-            TotalDebits = 10m,
-            CreditEntryCount = 1,
-            DebitEntryCount = 1,
-            TransactionVolume = 2,
-            LastUpdatedUtc = DateTimeOffset.UtcNow
-        });
+        var report = DailyReportBuilder.Build(
+            new DateOnly(2026, 6, 12),
+            new DailySummary
+            {
+                UserId = "cache-user",
+                ReportDate = new DateOnly(2026, 6, 12),
+                TotalCredits = 50m,
+                TotalDebits = 10m,
+                CreditEntryCount = 1,
+                DebitEntryCount = 1,
+                TransactionVolume = 2,
+                LastUpdatedUtc = DateTimeOffset.UtcNow,
+            }
+        );
 
-        await cache.SetAsync("cache-user", new DateOnly(2026, 6, 12), report, CancellationToken.None);
-        var cached = await cache.GetAsync("cache-user", new DateOnly(2026, 6, 12), CancellationToken.None);
+        await cache.SetAsync(
+            "cache-user",
+            new DateOnly(2026, 6, 12),
+            report,
+            CancellationToken.None
+        );
+        var cached = await cache.GetAsync(
+            "cache-user",
+            new DateOnly(2026, 6, 12),
+            CancellationToken.None
+        );
 
         Assert.NotNull(cached);
         Assert.Equal(50m, cached!.TotalCredits);
@@ -93,7 +126,8 @@ internal static class SqlTestDatabase
 {
     public static async Task<bool> IsAvailableAsync()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
+        var connectionString =
+            Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
             ?? "Server=127.0.0.1,1433;Database=reporting-db;User Id=sa;Password=CashFlow@Dev123!;TrustServerCertificate=True;Encrypt=False";
 
         try
@@ -113,7 +147,8 @@ internal static class SqlTestDatabase
 
     public static async Task<string> EnsureReportingDatabaseAsync()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
+        var connectionString =
+            Environment.GetEnvironmentVariable("ConnectionStrings__reporting-db")
             ?? "Server=127.0.0.1,1433;Database=reporting-db;User Id=sa;Password=CashFlow@Dev123!;TrustServerCertificate=True;Encrypt=False";
 
         var options = new DbContextOptionsBuilder<ReportingDbContext>()
@@ -134,7 +169,9 @@ internal static class RedisTestDatabase
     {
         try
         {
-            var connection = await StackExchange.Redis.ConnectionMultiplexer.ConnectAsync(ConnectionString);
+            var connection = await StackExchange.Redis.ConnectionMultiplexer.ConnectAsync(
+                ConnectionString
+            );
             await connection.GetDatabase().PingAsync();
             return true;
         }

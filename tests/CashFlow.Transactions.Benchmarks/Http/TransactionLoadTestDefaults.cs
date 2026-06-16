@@ -2,7 +2,7 @@ namespace CashFlow.Transactions.Benchmarks.Http;
 
 /// <summary>
 /// Default CLI values for transaction HTTP benchmarks. These are exploratory probes,
-/// not the consolidation SLO (50 RPS / 5% loss — see ReportingSlo and reporting-slo.md).
+/// not the consolidation SLO (50 RPS / 5% loss — see reporting-slo.md).
 /// </summary>
 internal static class TransactionLoadTestDefaults
 {

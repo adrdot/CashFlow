@@ -31,7 +31,7 @@
       },
       "targets": [
         {
-          "expr": "max(reporting_sqs_visible_messages)",
+          "expr": "max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
           "legendFormat": "visible"
         }
       ]
@@ -117,11 +117,11 @@
       "gridPos": { "h": 7, "w": 6, "x": 12, "y": 13 },
       "targets": [
         {
-          "expr": "max(reporting_sqs_visible_messages)",
+          "expr": "max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
           "legendFormat": "visible"
         },
         {
-          "expr": "max(reporting_sqs_in_flight_messages)",
+          "expr": "max(aws_sqs_approximate_number_of_messages_not_visible_average{dimension_QueueName=~\"cashflow-transaction-recorded.*\"})",
           "legendFormat": "in-flight"
         }
       ]

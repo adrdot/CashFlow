@@ -54,8 +54,8 @@ function Read-PipelineSnapshotFromPrometheus {
         RelayInFlight      = [long](Get-PrometheusQueryValue -Query "max(transactions_relay_subscription_in_flight)")
         Consumed           = [long](Get-PrometheusQueryValue -Query "sum(reporting_messages_consumed_total)")
         ProjectionFailures = [long](Get-PrometheusQueryValue -Query "sum(reporting_messages_failures_total)")
-        SqsVisible         = [long](Get-PrometheusQueryValue -Query "max(reporting_sqs_visible_messages)")
-        SqsInFlight        = [long](Get-PrometheusQueryValue -Query "max(reporting_sqs_in_flight_messages)")
+        SqsVisible         = [long](Get-PrometheusQueryValue -Query 'max(aws_sqs_approximate_number_of_messages_visible_average{dimension_QueueName=~"cashflow-transaction-recorded.*"})')
+        SqsInFlight        = [long](Get-PrometheusQueryValue -Query 'max(aws_sqs_approximate_number_of_messages_not_visible_average{dimension_QueueName=~"cashflow-transaction-recorded.*"})')
     }
 }
 

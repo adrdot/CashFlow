@@ -8,5 +8,6 @@ public interface ITransactionService
         CreateTransactionRequest request,
         string userId,
         string? idempotencyKey = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

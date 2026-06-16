@@ -24,9 +24,9 @@ description: "Lista de tarefas para implementação da tela de login"
 **Propósito**: Criar a estrutura da fatia de autenticação e a configuração base dos projetos necessária antes do trabalho específico da funcionalidade.
 
 - [ ] T001 Criar pastas da solução de autenticação em `src/` e `tests/` para `CashFlow.Auth.Api`, `CashFlow.Auth.Application`, `CashFlow.Auth.Domain`, `CashFlow.Auth.Infrastructure`, `CashFlow.Web`, `CashFlow.Auth.UnitTests`, `CashFlow.Auth.IntegrationTests` e `CashFlow.Auth.ContractTests`
-- [ ] T002 Adicionar projetos de autenticação à solução e ao grafo de referências em `AspireApp1.slnx`
-- [ ] T003 [P] Registrar a API de autenticação e o cliente web em `AspireApp1.AppHost/AppHost.cs`
-- [ ] T004 [P] Estender os service defaults compartilhados para logging, health checks e métricas em `AspireApp1.ServiceDefaults/Extensions.cs`
+- [ ] T002 Adicionar projetos de autenticação à solução e ao grafo de referências em `Aspire.CashFlow.slnx`
+- [ ] T003 [P] Registrar a API de autenticação e o cliente web em `Aspire.CashFlow.AppHost/AppHost.cs`
+- [ ] T004 [P] Estender os service defaults compartilhados para logging, health checks e métricas em `Aspire.CashFlow.ServiceDefaults/Extensions.cs`
 
 ---
 

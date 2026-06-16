@@ -1,27 +1,41 @@
 using Amazon.CognitoIdentityProvider;
 using Amazon.CognitoIdentityProvider.Model;
 using Amazon.Runtime;
+using CashFlow.Auth.Infrastructure.Identity.Abstractions;
 
 namespace CashFlow.Auth.Infrastructure.Identity;
 
-public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cognitoClient) : ICognitoIdentityGateway
+public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cognitoClient)
+    : ICognitoIdentityGateway
 {
-    public async Task<CognitoAuthResult> AuthenticateAsync(string clientId, string username, string password, CancellationToken cancellationToken = default)
+    public async Task<CognitoAuthResult> AuthenticateAsync(
+        string clientId,
+        string username,
+        string password,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            var response = await cognitoClient.InitiateAuthAsync(new InitiateAuthRequest
-            {
-                AuthFlow = AuthFlowType.USER_PASSWORD_AUTH,
-                ClientId = clientId,
-                AuthParameters = new Dictionary<string, string>
+            var response = await cognitoClient.InitiateAuthAsync(
+                new InitiateAuthRequest
                 {
-                    ["USERNAME"] = username,
-                    ["PASSWORD"] = password
-                }
-            }, cancellationToken);
+                    AuthFlow = AuthFlowType.USER_PASSWORD_AUTH,
+                    ClientId = clientId,
+                    AuthParameters = new Dictionary<string, string>
+                    {
+                        ["USERNAME"] = username,
+                        ["PASSWORD"] = password,
+                    },
+                },
+                cancellationToken
+            );
 
-            return Map(response.AuthenticationResult, response.ChallengeName?.Value, response.Session);
+            return Map(
+                response.AuthenticationResult,
+                response.ChallengeName?.Value,
+                response.Session
+            );
         }
         catch (Exception ex) when (IsInvalidCredentialsException(ex))
         {
@@ -29,23 +43,37 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         }
     }
 
-    public async Task<CognitoAuthResult> RespondToMfaChallengeAsync(string clientId, string challengeSession, string username, string mfaCode, string challengeName, CancellationToken cancellationToken = default)
+    public async Task<CognitoAuthResult> RespondToMfaChallengeAsync(
+        string clientId,
+        string challengeSession,
+        string username,
+        string mfaCode,
+        string challengeName,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            var response = await cognitoClient.RespondToAuthChallengeAsync(new RespondToAuthChallengeRequest
-            {
-                ClientId = clientId,
-                Session = challengeSession,
-                ChallengeName = ParseChallengeName(challengeName),
-                ChallengeResponses = new Dictionary<string, string>
+            var response = await cognitoClient.RespondToAuthChallengeAsync(
+                new RespondToAuthChallengeRequest
                 {
-                    ["USERNAME"] = username,
-                    [GetChallengeResponseKey(challengeName)] = mfaCode
-                }
-            }, cancellationToken);
+                    ClientId = clientId,
+                    Session = challengeSession,
+                    ChallengeName = ParseChallengeName(challengeName),
+                    ChallengeResponses = new Dictionary<string, string>
+                    {
+                        ["USERNAME"] = username,
+                        [GetChallengeResponseKey(challengeName)] = mfaCode,
+                    },
+                },
+                cancellationToken
+            );
 
-            return Map(response.AuthenticationResult, response.ChallengeName?.Value, response.Session);
+            return Map(
+                response.AuthenticationResult,
+                response.ChallengeName?.Value,
+                response.Session
+            );
         }
         catch (CodeMismatchException)
         {
@@ -61,21 +89,32 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         }
     }
 
-    public async Task<CognitoAuthResult> RefreshTokenAsync(string clientId, string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<CognitoAuthResult> RefreshTokenAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            var response = await cognitoClient.InitiateAuthAsync(new InitiateAuthRequest
-            {
-                AuthFlow = AuthFlowType.REFRESH_TOKEN_AUTH,
-                ClientId = clientId,
-                AuthParameters = new Dictionary<string, string>
+            var response = await cognitoClient.InitiateAuthAsync(
+                new InitiateAuthRequest
                 {
-                    ["REFRESH_TOKEN"] = refreshToken
-                }
-            }, cancellationToken);
+                    AuthFlow = AuthFlowType.REFRESH_TOKEN_AUTH,
+                    ClientId = clientId,
+                    AuthParameters = new Dictionary<string, string>
+                    {
+                        ["REFRESH_TOKEN"] = refreshToken,
+                    },
+                },
+                cancellationToken
+            );
 
-            return Map(response.AuthenticationResult, response.ChallengeName?.Value, response.Session);
+            return Map(
+                response.AuthenticationResult,
+                response.ChallengeName?.Value,
+                response.Session
+            );
         }
         catch (NotAuthorizedException)
         {
@@ -83,15 +122,22 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         }
     }
 
-    public async Task<CognitoUserProfile?> GetUserAsync(string accessToken, CancellationToken cancellationToken = default)
+    public async Task<CognitoUserProfile?> GetUserAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default
+    )
     {
-        var response = await cognitoClient.GetUserAsync(new GetUserRequest
-        {
-            AccessToken = accessToken
-        }, cancellationToken);
+        var response = await cognitoClient.GetUserAsync(
+            new GetUserRequest { AccessToken = accessToken },
+            cancellationToken
+        );
 
-        var attributes = response.UserAttributes?.ToDictionary(attribute => attribute.Name, attribute => attribute.Value, StringComparer.OrdinalIgnoreCase)
-            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var attributes =
+            response.UserAttributes?.ToDictionary(
+                attribute => attribute.Name,
+                attribute => attribute.Value,
+                StringComparer.OrdinalIgnoreCase
+            ) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         attributes.TryGetValue("email", out var email);
         attributes.TryGetValue("name", out var displayName);
@@ -100,18 +146,23 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         {
             Username = response.Username,
             Email = email ?? string.Empty,
-            DisplayName = string.IsNullOrWhiteSpace(displayName) ? email ?? response.Username : displayName
+            DisplayName = string.IsNullOrWhiteSpace(displayName)
+                ? email ?? response.Username
+                : displayName,
         };
     }
 
-    public async Task GlobalSignOutAsync(string accessToken, CancellationToken cancellationToken = default)
+    public async Task GlobalSignOutAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
-            await cognitoClient.GlobalSignOutAsync(new GlobalSignOutRequest
-            {
-                AccessToken = accessToken
-            }, cancellationToken);
+            await cognitoClient.GlobalSignOutAsync(
+                new GlobalSignOutRequest { AccessToken = accessToken },
+                cancellationToken
+            );
         }
         catch (NotAuthorizedException)
         {
@@ -131,13 +182,18 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
 
     private static bool IsInvalidCredentialsException(Exception exception)
     {
-        return exception is NotAuthorizedException
-            or UserNotFoundException
-            or InvalidPasswordException
-            or UserNotConfirmedException;
+        return exception
+            is NotAuthorizedException
+                or UserNotFoundException
+                or InvalidPasswordException
+                or UserNotConfirmedException;
     }
 
-    private static CognitoAuthResult Map(AuthenticationResultType? authenticationResult, string? challengeName, string? challengeSession)
+    private static CognitoAuthResult Map(
+        AuthenticationResultType? authenticationResult,
+        string? challengeName,
+        string? challengeSession
+    )
     {
         return new CognitoAuthResult
         {
@@ -146,7 +202,7 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
             RefreshToken = authenticationResult?.RefreshToken,
             ExpiresIn = authenticationResult?.ExpiresIn ?? 0,
             ChallengeName = challengeName,
-            ChallengeSession = challengeSession
+            ChallengeSession = challengeSession,
         };
     }
 
@@ -155,7 +211,7 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         return challengeName switch
         {
             "SOFTWARE_TOKEN_MFA" => "SOFTWARE_TOKEN_MFA_CODE",
-            _ => "SMS_MFA_CODE"
+            _ => "SMS_MFA_CODE",
         };
     }
 
@@ -165,7 +221,7 @@ public sealed class AwsCognitoIdentityGateway(IAmazonCognitoIdentityProvider cog
         {
             "SOFTWARE_TOKEN_MFA" => ChallengeNameType.SOFTWARE_TOKEN_MFA,
             "SMS_MFA" => ChallengeNameType.SMS_MFA,
-            _ => ChallengeNameType.SMS_MFA
+            _ => ChallengeNameType.SMS_MFA,
         };
     }
 }

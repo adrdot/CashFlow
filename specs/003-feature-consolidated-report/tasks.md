@@ -24,9 +24,9 @@ description: "Lista de tarefas para implementação de relatório consolidado e 
 **Propósito**: Criar a estrutura da fatia de reporting e conectá-la à solução existente hospedada no Aspire.
 
 - [ ] T001 Criar pastas da solução de reporting em `src/` e `tests/` para `CashFlow.Reporting.Api`, `CashFlow.Reporting.Application`, `CashFlow.Reporting.Domain`, `CashFlow.Reporting.Infrastructure`, `CashFlow.Reporting.UnitTests`, `CashFlow.Reporting.IntegrationTests` e `CashFlow.Reporting.ContractTests`
-- [ ] T002 Adicionar projetos de reporting à solução e ao grafo de referências em `AspireApp1.slnx`
-- [ ] T003 [P] Registrar a API de reporting mais a configuração de dependência Redis em `AspireApp1.AppHost/AppHost.cs`
-- [ ] T004 [P] Estender os service defaults compartilhados para health checks de reporting, políticas de resiliência e métricas em `AspireApp1.ServiceDefaults/Extensions.cs`
+- [ ] T002 Adicionar projetos de reporting à solução e ao grafo de referências em `Aspire.CashFlow.slnx`
+- [ ] T003 [P] Registrar a API de reporting mais a configuração de dependência Redis em `Aspire.CashFlow.AppHost/AppHost.cs`
+- [ ] T004 [P] Estender os service defaults compartilhados para health checks de reporting, políticas de resiliência e métricas em `Aspire.CashFlow.ServiceDefaults/Extensions.cs`
 
 ---
 

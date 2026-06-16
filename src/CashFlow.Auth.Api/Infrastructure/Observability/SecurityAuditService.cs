@@ -12,6 +12,7 @@ public sealed class SecurityAuditService(ILogger<SecurityAuditService> logger)
             securityEvent.EventType,
             securityEvent.Outcome,
             securityEvent.Subject,
-            securityEvent.OccurredAtUtc);
+            securityEvent.OccurredAtUtc
+        );
     }
 }
