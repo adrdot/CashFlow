@@ -26,6 +26,6 @@
     <!-- Corrige GHSA-hv8m-jj95-wg3x (transitivo via Aspire / benchmarks) -->
     <PackageReference Include="MessagePack" Version="2.5.302" />
     <!-- Alinha AWSSDK.Core v4 em todos os projetos -->
-    <PackageReference Include="AWSSDK.Core" Version="4.0.9.3" />
+    <PackageReference Include="AWSSDK.Core" Version="4.0.9.6" />
   </ItemGroup>
 </Project>

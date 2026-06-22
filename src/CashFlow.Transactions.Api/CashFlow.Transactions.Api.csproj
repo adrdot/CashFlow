@@ -30,7 +30,7 @@
 
   <ItemGroup>
 
-    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.3.5" />
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.3.7" />
 
     <PackageReference Include="EventStore.Client.Grpc" Version="23.3.9" />
 
