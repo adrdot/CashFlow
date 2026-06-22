@@ -24,7 +24,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <!-- Corrige GHSA-hv8m-jj95-wg3x (transitivo via Aspire / benchmarks) -->
-    <PackageReference Include="MessagePack" Version="2.5.302" />
+    <PackageReference Include="MessagePack" Version="3.1.7" />
     <!-- Alinha AWSSDK.Core v4 em todos os projetos -->
     <PackageReference Include="AWSSDK.Core" Version="4.0.9.3" />
   </ItemGroup>
